@@ -36,6 +36,8 @@ class _SocketHomePageState extends State<SocketHomePage> {
       ),
       body: new Center(
         child: new FlatButton(
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
           onPressed: () {
             setState(() {
               _status = !_status;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'settingsView.dart';
 
 void main() => runApp(MyApp());
 
@@ -27,12 +28,28 @@ class _SocketHomePageState extends State<SocketHomePage> {
   var _image = new Image(image: AssetImage("assets/images/btn_off.png"));
   var _bgColor = new Color.fromARGB(255, 49, 58, 73);
 
+  void _navigateToSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return SettingsView().build(context);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Smart Socket'),
         centerTitle: true,
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _navigateToSettings,
+          ),
+        ],
       ),
       body: new Center(
         child: new FlatButton(

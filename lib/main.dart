@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'settingsView.dart';
 import 'customImageButton.dart';
 
@@ -25,7 +24,7 @@ class SocketHomePage extends StatefulWidget {
 
 class _SocketHomePageState extends State<SocketHomePage> {
   // String _socketStatus = 'Socket is off';
-  bool _status = false;
+  bool _status = false; 
   var _assetImage = AssetImage("assets/images/btn_off.png");
   var _image = new Image(image: AssetImage("assets/images/btn_off.png"));
   var _bgColor = new Color.fromARGB(255, 49, 58, 73);

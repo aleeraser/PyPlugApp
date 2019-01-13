@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
 
-// Thanks to https://stackoverflow.com/questions/53641053/create-a-button-with-an-image-in-flutter
-
 class CustomImageButton extends StatelessWidget {
   final AssetImage assetImage;
   final Function onTap;
@@ -13,6 +11,7 @@ class CustomImageButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Thanks to https://stackoverflow.com/questions/53641053/create-a-button-with-an-image-in-flutter
     // return Container(
     //   child: ConstrainedBox(
     //     constraints: BoxConstraints.tightFor(height: 300),
@@ -29,7 +28,7 @@ class CustomImageButton extends StatelessWidget {
     //   ),
     // );
 
-    // Using a FloatingActionButton since it is naturally a circle.
+    // Using a FloatingActionButton instead since it is naturally a circle.
     return Container(
         width: double.infinity,
         child: FittedBox(

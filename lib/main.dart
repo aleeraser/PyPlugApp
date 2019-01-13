@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'customImageButton.dart';
+import 'customImageCircularButton.dart';
 import 'settingsView.dart';
 
 const SOCKET_TIMEOUT = 5;
@@ -133,7 +133,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
-            CustomImageButton(
+            CustomImageCircularButton(
+                sideLength: MediaQuery.of(context).size.width / 2,
                 assetImage: _status != null && _status ? const AssetImage('assets/images/btn_on.png') : const AssetImage('assets/images/btn_off.png'),
                 onTap: () {
                   _socketConnection(

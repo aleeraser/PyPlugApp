@@ -1,52 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:meta/meta.dart';
 
-class CustomImageButton extends StatelessWidget {
+class CustomImageCircularButton extends StatelessWidget {
   final AssetImage assetImage;
   final Function onTap;
+  final double sideLength;
 
-  CustomImageButton({@required this.assetImage, @required this.onTap});
+  CustomImageCircularButton({@required this.assetImage, @required this.onTap, this.sideLength});
 
   // TODO: the button is rectangular shaped even if the image is circular. Make the 'tappable-area' circular too.
 
   @override
   Widget build(BuildContext context) {
-    // Thanks to https://stackoverflow.com/questions/53641053/create-a-button-with-an-image-in-flutter
-    // return Container(
-    //   child: ConstrainedBox(
-    //     constraints: BoxConstraints.tightFor(height: 300),
-    //     child: Ink.image(
-    //       // padding: EdgeInsets.symmetric(horizontal: 60.0),
-    //       image: assetImage,
-    //       fit: BoxFit.fitWidth,
-    //       child: InkWell(
-    //         highlightColor: Colors.transparent,
-    //         splashColor: Colors.transparent,
-    //         onTap: onTap,
-    //       ),
-    //     ),
-    //   ),
-    // );
-
     // Using a FloatingActionButton instead since it is naturally a circle.
-    return Container(
-        width: double.infinity,
-        child: FittedBox(
-            child: FloatingActionButton(
-                onPressed: null, // tap is handled below
-                backgroundColor: Colors.transparent,
-                elevation: 0, // grounded
-                child: Container(
-                  child: Ink.image(
-                    // padding: EdgeInsets.symmetric(horizontal: 60.0),
-                    image: assetImage,
-                    fit: BoxFit.fitWidth,
-                    child: InkWell(
-                      highlightColor: Colors.transparent,
-                      splashColor: Colors.transparent,
-                      onTap: onTap,
-                    ),
-                  ),
-                ))));
+    return Ink.image(
+      image: assetImage,
+      fit: BoxFit.fitWidth,
+      child: ClipOval(
+        child: Container(
+          width: this.sideLength,
+          height: this.sideLength,
+          child: GestureDetector(
+            onTap: onTap,
+          ),
+        ),
+      ),
+    );
   }
 }

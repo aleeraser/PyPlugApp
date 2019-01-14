@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
 
 import 'customImageCircularButton.dart';
@@ -224,9 +225,14 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                     sideLength: MediaQuery.of(context).size.width / 2,
                     assetImage: assetImage,
                     onTap: () {
+                      final AudioCache audioPlayer = new AudioCache();
+                      const switchAudioPath = 'sounds/switch.mp3';
+
                       _socketConnection(
                           command: switchButtonCommand,
                           onDoneCallback: () {
+                            audioPlayer.play(switchAudioPath);
+
                             final _oldStatus = _status;
 
                             _updateStatus(
@@ -234,6 +240,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                 onDoneCallback: () => setState(() {
                                       if (_oldStatus == _status) {
                                         _showMessage('Error');
+                                      } else {
+                                        // audioPlayer.play(switchAudioPath);
                                       }
                                     }));
                           });

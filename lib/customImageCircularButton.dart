@@ -8,8 +8,6 @@ class CustomImageCircularButton extends StatelessWidget {
 
   CustomImageCircularButton({@required this.assetImage, @required this.onTap, this.sideLength});
 
-  // TODO: the button is rectangular shaped even if the image is circular. Make the 'tappable-area' circular too.
-
   @override
   Widget build(BuildContext context) {
     // Using a FloatingActionButton instead since it is naturally a circle.

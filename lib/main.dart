@@ -11,6 +11,7 @@ Socket s;
 
 enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE }
 enum Status { ON, OFF, UNKNOWN }
+enum DataType { CURRENT, POWER }
 
 void main() => runApp(MyApp());
 
@@ -36,6 +37,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   Status _status = Status.UNKNOWN;
   String _statusText = 'Status unknown';
+  Color _dynamicColor;
 
   void _navigateToSettings() {
     Navigator.of(context).push(
@@ -104,7 +106,43 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     _scaffoldKey.currentState.showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: error ? Colors.red[900] : null,
+      action: SnackBarAction(
+        label: 'CLOSE',
+        textColor: error ? Colors.white : DefaultTextStyle,
+        onPressed: () => _scaffoldKey.currentState.removeCurrentSnackBar(reason: SnackBarClosedReason.remove),
+      ),
     ));
+  }
+
+  TableCell _infoCell({@required double value, @required DataType type}) {
+    String _cellText = '${type == DataType.CURRENT ? 'Current (mA)' : 'Power (W)'}\n$value';
+    return TableCell(
+        child: GestureDetector(
+            onLongPress: () => showDialog(
+                context: context,
+                builder: (_) => new AlertDialog(
+                      title: Text('Reset \'${type == DataType.CURRENT ? 'current' : 'power'}\' value?'),
+                      actions: <Widget>[
+                        FlatButton(
+                            child: Text('Back'),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            }),
+                        FlatButton(
+                            child: Text(
+                              'Reset value',
+                              style: TextStyle(color: Colors.red[800]),
+                            ),
+                            onPressed: () {
+                              debugPrint('CANCELLA');
+                              Navigator.of(context).pop();
+                            }),
+                      ],
+                    )),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(_cellText, style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
+            )));
   }
 
   @override
@@ -121,6 +159,10 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final _tableBorderColor = _status == Status.ON ? Colors.grey[200] : Colors.blueGrey[800];
+
+    _dynamicColor = _status == Status.ON ? Colors.black : Colors.blueGrey[300];
+
     IconButton retryButton = IconButton(
       icon: const Icon(Icons.refresh),
       onPressed: () {
@@ -172,12 +214,25 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                     }),
                 Padding(
                   padding: EdgeInsets.only(top: 40),
-                  child: Text(_statusText),
+                  child: Text(_statusText, style: TextStyle(color: _dynamicColor), textScaleFactor: 1.3),
                 ),
                 _status == Status.UNKNOWN && _statusText != 'Loading...'
                     ? retryButton
-                    : Container(), // empty container as a workaround, since 'null' is not supported for a child tree
+                    : Container(), // placing an empty container as a workaround, since 'null' is not supported in a child tree
               ],
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width / 8),
+              child: Table(
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                border: TableBorder.symmetric(inside: BorderSide(color: _tableBorderColor), outside: BorderSide(color: _tableBorderColor)),
+                children: <TableRow>[
+                  TableRow(children: <TableCell>[
+                    _infoCell(value: 0.0, type: DataType.CURRENT), // FIXME: rendi i valori dei fields
+                    _infoCell(value: 0.0, type: DataType.POWER), // FIXME: rendi i valori dei fields
+                  ]),
+                ],
+              ),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,

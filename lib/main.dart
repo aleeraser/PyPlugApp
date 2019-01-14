@@ -10,6 +10,7 @@ const SOCKET_TIMEOUT = 5;
 Socket s;
 
 enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE }
+enum Status { ON, OFF, UNKNOWN }
 
 void main() => runApp(MyApp());
 
@@ -33,16 +34,8 @@ class SmartSocketHomePage extends StatefulWidget {
 
 class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _status;
-  String get statusText {
-    if (_status == null) {
-      return 'Loading...';
-    } else if (_status) {
-      return 'Socket is on';
-    } else {
-      return 'Socket is off';
-    }
-  }
+  Status _status = Status.UNKNOWN;
+  String _statusText = 'Status unknown';
 
   void _navigateToSettings() {
     Navigator.of(context).push(
@@ -59,9 +52,9 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       s.close();
       s.destroy();
       s = null;
-      // debugPrint("Destroyed socket.");
+      // debugPrint('Destroyed socket.');
     } else {
-      debugPrint("Socket wasn't opened.");
+      debugPrint('Socket wasn\'t opened.');
     }
   }
 
@@ -90,11 +83,21 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       } else {
         _showMessage('Error.', error: true);
       }
+
+      setState(() {
+        _statusText = 'Status unknown';
+      });
     });
   }
 
   void _updateStatus({Function onDoneCallback}) {
-    _socketConnection(command: Commands.ATSTATE, onDataCallback: (data) => _status = String.fromCharCodes(data) == '1', onDoneCallback: onDoneCallback);
+    _socketConnection(
+        command: Commands.ATSTATE,
+        onDataCallback: (data) {
+          _status = String.fromCharCodes(data) == '1' ? Status.ON : Status.OFF;
+          _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
+        },
+        onDoneCallback: onDoneCallback);
   }
 
   void _showMessage(String msg, {bool error = false}) {
@@ -106,9 +109,10 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   @override
   void initState() {
-    if (_status == null) {
+    if (_status == Status.UNKNOWN) {
+      _statusText = 'Loading...';
       _updateStatus(onDoneCallback: () {
-        debugPrint('Status: ${_status ? 'on' : 'off'}');
+        debugPrint('Status: ${_status == Status.ON ? 'on' : 'off'}');
         setState(() => null);
       });
     }
@@ -117,6 +121,19 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    IconButton retryButton = IconButton(
+      icon: const Icon(Icons.refresh),
+      onPressed: () {
+        setState(() {
+          _statusText = 'Loading...';
+        });
+        _updateStatus(onDoneCallback: () {
+          debugPrint('Status: ${_status == Status.ON ? 'on' : 'off'}');
+          setState(() => null);
+        });
+      },
+    );
+
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
@@ -131,26 +148,37 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       ),
       body: Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            CustomImageCircularButton(
-                sideLength: MediaQuery.of(context).size.width / 2,
-                assetImage: _status != null && _status ? const AssetImage('assets/images/btn_on.png') : const AssetImage('assets/images/btn_off.png'),
-                onTap: () {
-                  _socketConnection(
-                      command: _status ? Commands.ATOFF : Commands.ATON,
-                      onDoneCallback: () {
-                        final _oldStatus = _status;
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                CustomImageCircularButton(
+                    sideLength: MediaQuery.of(context).size.width / 2,
+                    assetImage: _status == Status.ON ? const AssetImage('assets/images/btn_on.png') : const AssetImage('assets/images/btn_off.png'),
+                    onTap: () {
+                      _socketConnection(
+                          command: _status == Status.ON ? Commands.ATOFF : Commands.ATON,
+                          onDoneCallback: () {
+                            final _oldStatus = _status;
 
-                        _updateStatus(
-                            onDoneCallback: () => setState(() {
-                                  if (_oldStatus == _status) {
-                                    _showMessage('Error');
-                                  }
-                                }));
-                      });
-                }),
-            Text(statusText),
+                            _updateStatus(
+                                onDoneCallback: () => setState(() {
+                                      if (_oldStatus == _status) {
+                                        _showMessage('Error');
+                                      }
+                                    }));
+                          });
+                    }),
+                Padding(
+                  padding: EdgeInsets.only(top: 40),
+                  child: Text(_statusText),
+                ),
+                _status == Status.UNKNOWN && _statusText != 'Loading...'
+                    ? retryButton
+                    : Container(), // empty container as a workaround, since 'null' is not supported for a child tree
+              ],
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
@@ -171,7 +199,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
           ],
         ),
       ),
-      backgroundColor: _status != null && _status ? Colors.white : const Color.fromARGB(255, 49, 58, 73),
+      backgroundColor: _status == Status.ON ? Colors.white : const Color.fromARGB(255, 49, 58, 73),
     );
   }
 }

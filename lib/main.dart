@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 
 import 'customImageCircularButton.dart';
 import 'settingsView.dart';
+import 'dart:async';
 
-const SOCKET_TIMEOUT = 3;
+const SOCKET_TIMEOUT = 5;
 
-Socket s;
+Socket _s;
+Timer _timer;
 
 enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE }
 enum Status { ON, OFF, UNKNOWN, LOADING }
@@ -36,16 +38,26 @@ class SmartSocketHomePage extends StatefulWidget {
 
 class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   Status __status = Status.UNKNOWN;
   Status _prevStatus = Status.UNKNOWN;
   get _status => __status;
   set _status(Status newStatus) {
     _prevStatus = __status;
     __status = newStatus;
+
+    if (newStatus == Status.UNKNOWN) {
+      _current = _power = 'Unknown';
+      _statusText = 'Status unknown';
+    }
   }
+
+  String _current = 'Unknown', _power = 'Unknown';
 
   String _statusText = 'Status unknown';
   Color _dynamicColor;
+
+  bool _socketIsFree = true;
 
   void _navigateToSettings() {
     Navigator.of(context).push(
@@ -58,28 +70,41 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _destroySocket() {
-    if (s != null) {
-      s.close();
-      s.destroy();
-      s = null;
+    if (_s != null) {
+      _s.close();
+      _s.destroy();
+      _s = null;
       // debugPrint('Destroyed socket.');
     } else {
       debugPrint('Socket wasn\'t opened.');
     }
+    _socketIsFree = true;
   }
 
-  void _socketConnection({@required Commands command, String url, int port, Function onDataCallback, Function onErrorCallback, Function onDoneCallback}) {
+  void _socketConnection({@required Commands command, bool showMessages = true, String url, int port, Function onDataCallback, Function onErrorCallback, Function onDoneCallback}) {
     final _url = url != null ? url : '192.168.4.1';
     final _port = port != null ? port : 8888;
     final _commandStr = command.toString().replaceAll('Commands.', '');
 
-    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT)).then((Socket _s) {
-      s = _s;
-      s.write('$_commandStr\n');
-      s.listen(onDataCallback != null ? onDataCallback : null,
-          onError: (error) {
-            debugPrint(error);
-            _showMessage('Error');
+    if (!_socketIsFree) {
+      return;
+    }
+
+    _socketIsFree = false;
+
+    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT)).then((Socket _newSocket) {
+      _s = _newSocket;
+      _s.write('$_commandStr\n');
+      _s.listen(onDataCallback != null ? onDataCallback : null,
+          onError: (exception) {
+            _destroySocket();
+            if (showMessages) _showMessage('Error.', error: true);
+
+            if (exception is SocketException) {
+              debugPrint(exception.message);
+            } else {
+              debugPrint(exception.toString());
+            }
 
             if (onErrorCallback != null) onErrorCallback();
           },
@@ -90,24 +115,25 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
             if (onDoneCallback != null) onDoneCallback();
             debugPrint('$_commandStr completed');
           });
-    }).catchError((e) {
-      if (e is SocketException) {
-        debugPrint(e.message);
+    }).catchError((exception) {
+      _destroySocket();
+      if (exception is SocketException) {
+        debugPrint(exception.message);
 
         // FIXME: is there really no other way?
-        if (e.message.toLowerCase().contains('timed out')) {
-          _showMessage('Error: timeout.', error: true);
+        if (exception.message.toLowerCase().contains('timed out')) {
+          if (showMessages) _showMessage('Error: timeout.', error: true);
         }
       } else {
-        _showMessage('Error.', error: true);
-        debugPrint(e.toString());
+        if (showMessages) _showMessage('Error.', error: true);
+        debugPrint(exception.toString());
       }
 
       if (onErrorCallback != null) onErrorCallback();
     });
   }
 
-  void _updateStatus({bool showLoading = false, Function onDoneCallback}) {
+  void _updateStatus({bool showLoading = false, bool showMessages = true, Function onDoneCallback}) {
     if (showLoading) {
       setState(() {
         _statusText = 'Loading...';
@@ -117,13 +143,48 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
     _socketConnection(
         command: Commands.ATSTATE,
+        showMessages: showMessages,
         onDataCallback: (data) {
           _status = String.fromCharCodes(data) == '1' ? Status.ON : Status.OFF;
           _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
         },
+        onDoneCallback: () => _updateStats(onDoneCallback: onDoneCallback),
+        onErrorCallback: () => setState(() {
+              _status = Status.UNKNOWN;
+            }));
+  }
+
+  void _updateStats({Function onDoneCallback}) {
+    Function _powerStatUpdate = () {
+      _socketConnection(
+          command: Commands.ATPOWER,
+          onDataCallback: (data) {
+            _power = String.fromCharCodes(data);
+          },
+          onDoneCallback: onDoneCallback,
+          onErrorCallback: () => setState(() {
+                _status = Status.UNKNOWN;
+              }));
+    };
+    _socketConnection(
+        command: Commands.ATREAD,
+        onDataCallback: (data) {
+          _current = String.fromCharCodes(data);
+        },
+        onDoneCallback: _powerStatUpdate,
+        onErrorCallback: () => setState(() {
+              _status = Status.UNKNOWN;
+            }));
+  }
+
+  void _resetPowerStat({Function onDoneCallback}) {
+    _socketConnection(
+        command: Commands.ATZERO,
+        onDataCallback: (data) {
+          _current = String.fromCharCodes(data);
+        },
         onDoneCallback: onDoneCallback,
         onErrorCallback: () => setState(() {
-              _statusText = 'Status unknown';
               _status = Status.UNKNOWN;
             }));
   }
@@ -140,35 +201,17 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     ));
   }
 
-  TableCell _infoCell({@required double value, @required DataType type}) {
-    String _cellText = '${type == DataType.CURRENT ? 'Current (mA)' : 'Power (W)'}\n$value';
-    return TableCell(
-        child: GestureDetector(
-            onLongPress: () => showDialog(
-                context: context,
-                builder: (_) => new AlertDialog(
-                      title: Text('Reset \'${type == DataType.CURRENT ? 'Current' : 'Power'}\' value?'),
-                      actions: <Widget>[
-                        FlatButton(
-                            child: Text('Back'),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            }),
-                        FlatButton(
-                            child: Text(
-                              'Reset value',
-                              style: TextStyle(color: Colors.red[800]),
-                            ),
-                            onPressed: () {
-                              debugPrint('CANCELLA');
-                              Navigator.of(context).pop();
-                            }),
-                      ],
-                    )),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(_cellText, style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
-            )));
+  void _rescheduleUpdateTimer(Duration duration) {
+    if (_timer != null) {
+      _timer.cancel();
+    }
+
+    _timer = Timer.periodic(duration, (timer) {
+      if (_socketIsFree) {
+        debugPrint('Update');
+        _updateStatus(showMessages: false, onDoneCallback: () => setState(() => null));
+      }
+    });
   }
 
   @override
@@ -179,6 +222,9 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
         setState(() => null);
       });
     }
+
+    _rescheduleUpdateTimer(Duration(seconds: 5));
+
     super.initState();
   }
 
@@ -225,7 +271,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                     sideLength: MediaQuery.of(context).size.width / 2,
                     assetImage: assetImage,
                     onTap: () {
-                      final AudioCache audioPlayer = new AudioCache();
+                      final AudioCache audioPlayer = AudioCache();
                       const switchAudioPath = 'sounds/switch.mp3';
 
                       _socketConnection(
@@ -240,8 +286,6 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                 onDoneCallback: () => setState(() {
                                       if (_oldStatus == _status) {
                                         _showMessage('Error');
-                                      } else {
-                                        // audioPlayer.play(switchAudioPath);
                                       }
                                     }));
                           });
@@ -252,13 +296,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: _status != Status.LOADING
-                      ? () {
-                          _updateStatus(onDoneCallback: () {
-                            setState(() => null);
-                          });
-                        }
-                      : null,
+                  onPressed: _status != Status.LOADING ? () => _updateStatus(onDoneCallback: () => setState(() => null)) : null,
                 ),
               ],
             ),
@@ -272,8 +310,42 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                     border: TableBorder.symmetric(inside: BorderSide(color: _tableBorderColor), outside: BorderSide(color: _tableBorderColor)),
                     children: <TableRow>[
                       TableRow(children: <TableCell>[
-                        _infoCell(value: 0.0, type: DataType.CURRENT), // FIXME: rendi i valori dei fields
-                        _infoCell(value: 0.0, type: DataType.POWER), // FIXME: rendi i valori dei fields
+                        TableCell(
+                            child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text('Current (A)\n$_current', style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
+                        )),
+                        TableCell(
+                            child: GestureDetector(
+                                onTap: () => showDialog(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                          title: Text('Reset \'Power\' value?'),
+                                          actions: <Widget>[
+                                            FlatButton(
+                                                child: const Text('Back'),
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                }),
+                                            FlatButton(
+                                                child: Text(
+                                                  'Reset value',
+                                                  style: TextStyle(color: Colors.red[800]),
+                                                ),
+                                                onPressed: () {
+                                                  _resetPowerStat(onDoneCallback: () {
+                                                    setState(() {
+                                                      _power = '0.000';
+                                                    });
+                                                  });
+                                                  Navigator.of(context).pop();
+                                                }),
+                                          ],
+                                        )),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text('Power (W)\n$_power', style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
+                                ))),
                       ]),
                     ],
                   ),
@@ -286,9 +358,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 IconButton(
                   icon: const Icon(Icons.adb),
                   onPressed: () {
-                    _updateStatus(onDoneCallback: () {
-                      setState(() => null);
-                    });
+                    _updateStatus(onDoneCallback: () => setState(() => null));
                   },
                 ),
                 IconButton(

@@ -10,6 +10,9 @@ import 'settingsView.dart';
 const SOCKET_TIMEOUT = 5;
 const UPDATE_INTERVAL = 5;
 
+const COLOR_ON = Color.fromARGB(255, 255, 255, 255);
+const COLOR_OFF = Color.fromARGB(255, 49, 58, 73);
+
 enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE, ATALL }
 enum Status { ON, OFF, UNKNOWN, LOADING }
 enum Priority { LOW, MID, HIGH }
@@ -143,7 +146,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Smart Socket',
       theme: ThemeData(
-        primaryColor: const Color.fromARGB(255, 0, 51, 50),
+        primaryColor: COLOR_OFF,
       ),
       home: SmartSocketHomePage(),
     );
@@ -267,13 +270,13 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       _dynamicColor = _prevStatus == Status.ON ? Colors.black : Colors.blueGrey[300];
       assetImage = _prevStatus == Status.ON ? const AssetImage('assets/images/btn_on.png') : const AssetImage('assets/images/btn_off.png');
       switchButtonCommand = _prevStatus == Status.ON ? Commands.ATOFF : Commands.ATON;
-      backgroundColor = _prevStatus == Status.ON ? Colors.white : const Color.fromARGB(255, 49, 58, 73);
+      backgroundColor = _prevStatus == Status.ON ? COLOR_ON : COLOR_OFF;
     } else {
       _tableBorderColor = _status == Status.ON ? Colors.grey[200] : Colors.blueGrey[800];
       _dynamicColor = _status == Status.ON ? Colors.black : Colors.blueGrey[300];
       assetImage = _status == Status.ON ? const AssetImage('assets/images/btn_on.png') : const AssetImage('assets/images/btn_off.png');
       switchButtonCommand = _status == Status.ON ? Commands.ATOFF : Commands.ATON;
-      backgroundColor = _status == Status.ON ? Colors.white : const Color.fromARGB(255, 49, 58, 73);
+      backgroundColor = _status == Status.ON ? COLOR_ON : COLOR_OFF;
     }
 
     return Scaffold(
@@ -281,6 +284,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       appBar: AppBar(
         title: const Text('Smart Socket'),
         centerTitle: true,
+        elevation: 0.0,
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.settings),

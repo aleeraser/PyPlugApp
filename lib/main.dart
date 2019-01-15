@@ -42,12 +42,14 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   Status _prevStatus = Status.UNKNOWN;
   get _status => __status;
   set _status(Status newStatus) {
-    _prevStatus = __status;
-    __status = newStatus;
+    if (newStatus != __status) {
+      _prevStatus = __status;
+      __status = newStatus;
 
-    if (newStatus == Status.UNKNOWN) {
-      _current = _power = 'Unknown';
-      _statusText = 'Status unknown';
+      if (newStatus == Status.UNKNOWN) {
+        _current = _power = 'Unknown';
+        _statusText = 'Status unknown';
+      }
     }
   }
 
@@ -146,7 +148,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     AssetImage assetImage;
     Commands switchButtonCommand;
 
-    if (_status == Status.LOADING) {
+    if (_status == Status.LOADING || _status == Status.UNKNOWN) {
       _tableBorderColor = _prevStatus == Status.ON ? Colors.grey[200] : Colors.blueGrey[800];
       _dynamicColor = _prevStatus == Status.ON ? Colors.black : Colors.blueGrey[300];
       assetImage = _prevStatus == Status.ON ? const AssetImage('assets/images/btn_on.png') : const AssetImage('assets/images/btn_off.png');

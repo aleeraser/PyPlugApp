@@ -13,7 +13,7 @@ const UPDATE_INTERVAL = 5;
 Socket _s;
 Timer _timer;
 
-enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE }
+enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE, ATALL }
 enum Status { ON, OFF, UNKNOWN, LOADING }
 enum DataType { CURRENT, POWER }
 
@@ -148,36 +148,19 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     }
 
     _socketConnection(
-        command: Commands.ATSTATE,
+        command: Commands.ATALL,
         showMessages: showMessages,
         onDataCallback: (data) {
-          _status = String.fromCharCodes(data) == '1' ? Status.ON : Status.OFF;
+          List<String> sData = String.fromCharCodes(data).split(',');
+          _status = sData[0] == '1' ? Status.ON : Status.OFF;
           _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
-        },
-        onDoneCallback: () => _updateStats(onDoneCallback: onDoneCallback),
-        onErrorCallback: () => setState(() {
-              _status = Status.UNKNOWN;
-            }));
-  }
 
-  void _updateStats({Function onDoneCallback}) {
-    Function _powerStatUpdate = () {
-      _socketConnection(
-          command: Commands.ATPOWER,
-          onDataCallback: (data) {
-            _power = String.fromCharCodes(data);
-          },
-          onDoneCallback: onDoneCallback,
-          onErrorCallback: () => setState(() {
-                _status = Status.UNKNOWN;
-              }));
-    };
-    _socketConnection(
-        command: Commands.ATREAD,
-        onDataCallback: (data) {
-          _current = String.fromCharCodes(data);
+          _current = sData[1];
+          _power = sData[2];
         },
-        onDoneCallback: _powerStatUpdate,
+        onDoneCallback: () => setState(() {
+              if (onDoneCallback != null) onDoneCallback();
+            }),
         onErrorCallback: () => setState(() {
               _status = Status.UNKNOWN;
             }));
@@ -215,7 +198,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     _timer = Timer.periodic(duration, (timer) {
       if (_socketIsFree) {
         debugPrint('Update');
-        _updateStatus(showMessages: false, onDoneCallback: () => setState(() => null));
+        _updateStatus(showMessages: false);
       }
     });
   }
@@ -225,7 +208,6 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     if (_status == Status.UNKNOWN) {
       _updateStatus(onDoneCallback: () {
         debugPrint('Status: $_status');
-        setState(() => null);
       });
     }
 
@@ -289,11 +271,11 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
                             _updateStatus(
                                 showLoading: false,
-                                onDoneCallback: () => setState(() {
-                                      if (_oldStatus == _status) {
-                                        _showMessage('Error');
-                                      }
-                                    }));
+                                onDoneCallback: () {
+                                  if (_oldStatus == _status) {
+                                    _showMessage('Error');
+                                  }
+                                });
                           });
                     }),
                 Padding(
@@ -303,7 +285,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   color: _dynamicColor,
-                  onPressed: _status != Status.LOADING ? () => _updateStatus(onDoneCallback: () => setState(() => null)) : null,
+                  onPressed: _status != Status.LOADING ? () => _updateStatus() : null,
                 ),
               ],
             ),
@@ -369,7 +351,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 IconButton(
                   icon: const Icon(Icons.adb),
                   onPressed: () {
-                    _updateStatus(onDoneCallback: () => setState(() => null));
+                    _updateStatus();
                   },
                 ),
                 IconButton(

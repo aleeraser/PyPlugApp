@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
+import 'package:preferences/preferences.dart';
 
 import 'CustomImageCircularButton.dart';
 import 'MessageHandler.dart';
@@ -15,7 +16,10 @@ const COLOR_OFF = Color.fromARGB(255, 49, 58, 73);
 
 enum Status { ON, OFF, UNKNOWN, LOADING }
 
-void main() => runApp(MyApp());
+main() async {
+  await PrefService.init(prefix: 'pref_');
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
@@ -26,6 +30,9 @@ class MyApp extends StatelessWidget {
         primaryColor: COLOR_OFF,
       ),
       home: SmartSocketHomePage(),
+      routes: <String, WidgetBuilder>{
+        '/settings': (BuildContext context) => SettingsView(),
+      },
     );
   }
 }
@@ -62,13 +69,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   Timer _timer;
 
   void _navigateToSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          return SettingsView().build(context);
-        },
-      ),
-    );
+    Navigator.of(context).pushNamed('/settings');
   }
 
   void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW}) {

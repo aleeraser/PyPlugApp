@@ -10,7 +10,7 @@ class CustomImageCircularButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Using a FloatingActionButton instead since it is naturally a circle.
+    // Using a FloatingActionButton since it is naturally a circle.
     return Ink.image(
       image: assetImage,
       fit: BoxFit.fitWidth,

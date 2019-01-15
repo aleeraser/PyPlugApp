@@ -10,12 +10,130 @@ import 'settingsView.dart';
 const SOCKET_TIMEOUT = 5;
 const UPDATE_INTERVAL = 5;
 
-Socket _s;
-Timer _timer;
-
 enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE, ATALL }
 enum Status { ON, OFF, UNKNOWN, LOADING }
-enum DataType { CURRENT, POWER }
+enum Priority { LOW, MID, HIGH }
+
+final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+class MessageHandler {
+  static final MessageHandler _mg = MessageHandler._internal();
+
+  MessageHandler._internal();
+
+  factory MessageHandler() {
+    return _mg;
+  }
+
+  static MessageHandler getHandler() {
+    return _mg;
+  }
+
+  void showError({@required GlobalKey<ScaffoldState> key, @required String msg}) {
+    showMessage(key: key, msg: msg, error: true);
+  }
+
+  void showMessage({@required GlobalKey<ScaffoldState> key, @required String msg, bool error = false}) {
+    key.currentState.showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? Colors.red[900] : null,
+      action: SnackBarAction(
+        label: 'CLOSE',
+        textColor: error ? Colors.white : DefaultTextStyle,
+        onPressed: () => key.currentState.removeCurrentSnackBar(reason: SnackBarClosedReason.remove),
+      ),
+    ));
+  }
+}
+
+class SocketHandler {
+  static final SocketHandler _sh = SocketHandler._internal();
+
+  Socket _s;
+  bool socketIsFree = true;
+  Priority currentSocketPriority = Priority.LOW;
+
+  SocketHandler._internal();
+
+  factory SocketHandler() {
+    return _sh;
+  }
+
+  void destroySocket() {
+    if (_s != null) {
+      _s.close();
+      _s.destroy();
+      _s = null;
+    }
+    socketIsFree = true;
+  }
+
+  void send(
+      {@required Commands command,
+      String url,
+      int port,
+      Function onDataCallback,
+      Function onErrorCallback,
+      Function onDoneCallback,
+      bool showMessages = true,
+      Priority priority = Priority.LOW}) {
+    final _url = url != null ? url : '192.168.4.1';
+    final _port = port != null ? port : 8888;
+    final _commandStr = command.toString().replaceAll('Commands.', '');
+
+    if (!socketIsFree && priority.index <= currentSocketPriority.index) {
+      return;
+    }
+
+    destroySocket();
+
+    socketIsFree = false;
+    currentSocketPriority = priority;
+
+    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT))
+        .then((Socket _newSocket) {
+          _s = _newSocket;
+          _s.write('$_commandStr\n');
+          _s.listen(onDataCallback != null ? onDataCallback : null,
+              onError: (exception) {
+                destroySocket();
+                if (showMessages) MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error.');
+
+                if (exception is SocketException) {
+                  debugPrint('Error: $exception');
+                } else {
+                  debugPrint('Error: $exception');
+                }
+
+                if (onErrorCallback != null) onErrorCallback();
+              },
+              cancelOnError: true,
+              onDone: () {
+                destroySocket();
+
+                if (onDoneCallback != null) onDoneCallback();
+                debugPrint('$_commandStr completed');
+              });
+        })
+        .timeout(Duration(seconds: SOCKET_TIMEOUT))
+        .catchError((exception) {
+          destroySocket();
+          if (exception is SocketException) {
+            debugPrint('Error: $exception');
+
+            // FIXME: is there really no other way?
+            if (exception.message.toLowerCase().contains('timed out')) {
+              if (showMessages) MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error: timeout.');
+            }
+          } else {
+            if (showMessages) MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error.');
+            debugPrint('Error: $exception');
+          }
+
+          if (onErrorCallback != null) onErrorCallback();
+        });
+  }
+}
 
 void main() => runApp(MyApp());
 
@@ -25,7 +143,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Smart Socket',
       theme: ThemeData(
-        primaryColor: Color.fromARGB(255, 0, 51, 50),
+        primaryColor: const Color.fromARGB(255, 0, 51, 50),
       ),
       home: SmartSocketHomePage(),
     );
@@ -38,8 +156,6 @@ class SmartSocketHomePage extends StatefulWidget {
 }
 
 class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
   Status __status = Status.UNKNOWN;
   Status _prevStatus = Status.UNKNOWN;
   get _status => __status;
@@ -58,7 +174,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   String _statusText = 'Status unknown';
   Color _dynamicColor;
 
-  bool _socketIsFree = true;
+  SocketHandler _sh = SocketHandler();
+  Timer _timer;
 
   void _navigateToSettings() {
     Navigator.of(context).push(
@@ -70,82 +187,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     );
   }
 
-  void _destroySocket() {
-    if (_s != null) {
-      _s.close();
-      _s.destroy();
-      _s = null;
-    }
-    _socketIsFree = true;
-  }
-
-  // TODO: use a priority system (1-5) instead of 'destroyOtherPendingConnections'
-  void _socketConnection(
-      {@required Commands command,
-      String url,
-      int port,
-      Function onDataCallback,
-      Function onErrorCallback,
-      Function onDoneCallback,
-      bool showMessages = true,
-      bool destroyOtherPendingConnections = false}) {
-    final _url = url != null ? url : '192.168.4.1';
-    final _port = port != null ? port : 8888;
-    final _commandStr = command.toString().replaceAll('Commands.', '');
-
-    if (!_socketIsFree && !destroyOtherPendingConnections) {
-      return;
-    }
-
-    _destroySocket();
-
-    _socketIsFree = false;
-
-    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT))
-        .then((Socket _newSocket) {
-          _s = _newSocket;
-          _s.write('$_commandStr\n');
-          _s.listen(onDataCallback != null ? onDataCallback : null,
-              onError: (exception) {
-                _destroySocket();
-                if (showMessages) _showMessage('Error.', error: true);
-
-                if (exception is SocketException) {
-                  debugPrint('Error: $exception');
-                } else {
-                  debugPrint('Error: $exception');
-                }
-
-                if (onErrorCallback != null) onErrorCallback();
-              },
-              cancelOnError: true,
-              onDone: () {
-                _destroySocket();
-
-                if (onDoneCallback != null) onDoneCallback();
-                debugPrint('$_commandStr completed');
-              });
-        })
-        .timeout(Duration(seconds: SOCKET_TIMEOUT))
-        .catchError((exception) {
-          _destroySocket();
-          if (exception is SocketException) {
-            debugPrint('Error: $exception');
-
-            // FIXME: is there really no other way?
-            if (exception.message.toLowerCase().contains('timed out')) {
-              if (showMessages) _showMessage('Error: timeout.', error: true);
-            }
-          } else {
-            if (showMessages) _showMessage('Error.', error: true);
-            debugPrint('Error: $exception');
-          }
-
-          if (onErrorCallback != null) onErrorCallback();
-        });
-  }
-
-  void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, bool destroyOtherPendingConnections = false}) {
+  void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW}) {
     // if called updateStatus cancel current timer and re-schedule it later
     _rescheduleUpdateTimer(Duration(seconds: UPDATE_INTERVAL));
 
@@ -156,12 +198,12 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       });
     }
 
-    _socketConnection(
+    _sh.send(
         command: Commands.ATALL,
         showMessages: showMessages,
-        destroyOtherPendingConnections: destroyOtherPendingConnections,
+        priority: priority,
         onDataCallback: (data) {
-          List<String> sData = String.fromCharCodes(data).split(',');
+          final List<String> sData = String.fromCharCodes(data).split(',');
           _status = sData[0] == '1' ? Status.ON : Status.OFF;
           _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
 
@@ -177,7 +219,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _resetPowerStat({Function onDoneCallback}) {
-    _socketConnection(
+    _sh.send(
         command: Commands.ATZERO,
         onDataCallback: (data) {
           _current = String.fromCharCodes(data);
@@ -188,25 +230,13 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
             }));
   }
 
-  void _showMessage(String msg, {bool error = false}) {
-    _scaffoldKey.currentState.showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: error ? Colors.red[900] : null,
-      action: SnackBarAction(
-        label: 'CLOSE',
-        textColor: error ? Colors.white : DefaultTextStyle,
-        onPressed: () => _scaffoldKey.currentState.removeCurrentSnackBar(reason: SnackBarClosedReason.remove),
-      ),
-    ));
-  }
-
   void _rescheduleUpdateTimer(Duration duration) {
     if (_timer != null && _timer.isActive) {
       _timer.cancel();
     }
 
     _timer = Timer.periodic(duration, (timer) {
-      if (_socketIsFree) {
+      if (_sh.socketIsFree) {
         debugPrint('Update');
         _updateStatus(showMessages: false);
       }
@@ -217,7 +247,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   void initState() {
     if (_status == Status.UNKNOWN) {
       _updateStatus(onDoneCallback: () {
-        debugPrint('Status: $_status');
+        debugPrint('Initial status: $_status');
       });
     }
 
@@ -270,33 +300,33 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                     assetImage: assetImage,
                     onTap: () {
                       final AudioCache audioPlayer = AudioCache();
-                      const switchAudioPath = 'sounds/switch.mp3';
+                      const String switchAudioPath = 'sounds/switch.mp3';
 
-                      _socketConnection(
+                      _sh.send(
                           command: switchButtonCommand,
-                          destroyOtherPendingConnections: true,
+                          priority: Priority.HIGH,
                           onDoneCallback: () {
                             audioPlayer.play(switchAudioPath);
 
-                            final _oldStatus = _status;
+                            final Status _oldStatus = _status;
 
                             _updateStatus(
                                 showLoading: false,
                                 onDoneCallback: () {
                                   if (_oldStatus == _status) {
-                                    _showMessage('Error');
+                                    MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error');
                                   }
                                 });
                           });
                     }),
                 Padding(
-                  padding: EdgeInsets.only(top: 40),
+                  padding: const EdgeInsets.only(top: 40),
                   child: Text(_statusText, style: TextStyle(color: _dynamicColor), textScaleFactor: 1.3),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   color: _dynamicColor,
-                  onPressed: _status != Status.LOADING ? () => _updateStatus() : null,
+                  onPressed: _status != Status.LOADING ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
                 ),
               ],
             ),
@@ -368,7 +398,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 IconButton(
                   icon: const Icon(Icons.cancel),
                   onPressed: () {
-                    _destroySocket();
+                    _sh.destroySocket();
                   },
                 )
               ],
@@ -382,7 +412,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   @override
   void dispose() {
-    _destroySocket();
+    _sh.destroySocket();
     _timer.cancel();
     super.dispose();
   }

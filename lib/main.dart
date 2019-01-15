@@ -79,12 +79,21 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     _socketIsFree = true;
   }
 
-  void _socketConnection({@required Commands command, bool showMessages = true, String url, int port, Function onDataCallback, Function onErrorCallback, Function onDoneCallback}) {
+  // TODO: use a priority system (1-5) instead of 'destroyOtherPendingConnections'
+  void _socketConnection(
+      {@required Commands command,
+      String url,
+      int port,
+      Function onDataCallback,
+      Function onErrorCallback,
+      Function onDoneCallback,
+      bool showMessages = true,
+      bool destroyOtherPendingConnections = false}) {
     final _url = url != null ? url : '192.168.4.1';
     final _port = port != null ? port : 8888;
     final _commandStr = command.toString().replaceAll('Commands.', '');
 
-    if (!_socketIsFree) {
+    if (!_socketIsFree && !destroyOtherPendingConnections) {
       return;
     }
 
@@ -102,9 +111,9 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 if (showMessages) _showMessage('Error.', error: true);
 
                 if (exception is SocketException) {
-                  debugPrint(exception.message);
+                  debugPrint('Error: $exception');
                 } else {
-                  debugPrint(exception.toString());
+                  debugPrint('Error: $exception');
                 }
 
                 if (onErrorCallback != null) onErrorCallback();
@@ -121,7 +130,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
         .catchError((exception) {
           _destroySocket();
           if (exception is SocketException) {
-            debugPrint(exception.message);
+            debugPrint('Error: $exception');
 
             // FIXME: is there really no other way?
             if (exception.message.toLowerCase().contains('timed out')) {
@@ -129,14 +138,14 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
             }
           } else {
             if (showMessages) _showMessage('Error.', error: true);
-            debugPrint(exception.toString());
+            debugPrint('Error: $exception');
           }
 
           if (onErrorCallback != null) onErrorCallback();
         });
   }
 
-  void _updateStatus({bool showLoading = false, bool showMessages = true, Function onDoneCallback}) {
+  void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, bool destroyOtherPendingConnections = false}) {
     // if called updateStatus cancel current timer and re-schedule it later
     _rescheduleUpdateTimer(Duration(seconds: UPDATE_INTERVAL));
 
@@ -150,6 +159,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     _socketConnection(
         command: Commands.ATALL,
         showMessages: showMessages,
+        destroyOtherPendingConnections: destroyOtherPendingConnections,
         onDataCallback: (data) {
           List<String> sData = String.fromCharCodes(data).split(',');
           _status = sData[0] == '1' ? Status.ON : Status.OFF;
@@ -264,6 +274,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
                       _socketConnection(
                           command: switchButtonCommand,
+                          destroyOtherPendingConnections: true,
                           onDoneCallback: () {
                             audioPlayer.play(switchAudioPath);
 

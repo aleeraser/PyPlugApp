@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audio_cache.dart';
@@ -5,9 +6,9 @@ import 'package:flutter/material.dart';
 
 import 'customImageCircularButton.dart';
 import 'settingsView.dart';
-import 'dart:async';
 
 const SOCKET_TIMEOUT = 5;
+const UPDATE_INTERVAL = 5;
 
 Socket _s;
 Timer _timer;
@@ -74,9 +75,6 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       _s.close();
       _s.destroy();
       _s = null;
-      // debugPrint('Destroyed socket.');
-    } else {
-      debugPrint('Socket wasn\'t opened.');
     }
     _socketIsFree = true;
   }
@@ -90,50 +88,58 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       return;
     }
 
+    _destroySocket();
+
     _socketIsFree = false;
 
-    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT)).then((Socket _newSocket) {
-      _s = _newSocket;
-      _s.write('$_commandStr\n');
-      _s.listen(onDataCallback != null ? onDataCallback : null,
-          onError: (exception) {
-            _destroySocket();
-            if (showMessages) _showMessage('Error.', error: true);
+    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT))
+        .then((Socket _newSocket) {
+          _s = _newSocket;
+          _s.write('$_commandStr\n');
+          _s.listen(onDataCallback != null ? onDataCallback : null,
+              onError: (exception) {
+                _destroySocket();
+                if (showMessages) _showMessage('Error.', error: true);
 
-            if (exception is SocketException) {
-              debugPrint(exception.message);
-            } else {
-              debugPrint(exception.toString());
+                if (exception is SocketException) {
+                  debugPrint(exception.message);
+                } else {
+                  debugPrint(exception.toString());
+                }
+
+                if (onErrorCallback != null) onErrorCallback();
+              },
+              cancelOnError: true,
+              onDone: () {
+                _destroySocket();
+
+                if (onDoneCallback != null) onDoneCallback();
+                debugPrint('$_commandStr completed');
+              });
+        })
+        .timeout(Duration(seconds: SOCKET_TIMEOUT))
+        .catchError((exception) {
+          _destroySocket();
+          if (exception is SocketException) {
+            debugPrint(exception.message);
+
+            // FIXME: is there really no other way?
+            if (exception.message.toLowerCase().contains('timed out')) {
+              if (showMessages) _showMessage('Error: timeout.', error: true);
             }
+          } else {
+            if (showMessages) _showMessage('Error.', error: true);
+            debugPrint(exception.toString());
+          }
 
-            if (onErrorCallback != null) onErrorCallback();
-          },
-          cancelOnError: true,
-          onDone: () {
-            _destroySocket();
-
-            if (onDoneCallback != null) onDoneCallback();
-            debugPrint('$_commandStr completed');
-          });
-    }).catchError((exception) {
-      _destroySocket();
-      if (exception is SocketException) {
-        debugPrint(exception.message);
-
-        // FIXME: is there really no other way?
-        if (exception.message.toLowerCase().contains('timed out')) {
-          if (showMessages) _showMessage('Error: timeout.', error: true);
-        }
-      } else {
-        if (showMessages) _showMessage('Error.', error: true);
-        debugPrint(exception.toString());
-      }
-
-      if (onErrorCallback != null) onErrorCallback();
-    });
+          if (onErrorCallback != null) onErrorCallback();
+        });
   }
 
   void _updateStatus({bool showLoading = false, bool showMessages = true, Function onDoneCallback}) {
+    // if called updateStatus cancel current timer and re-schedule it later
+    _rescheduleUpdateTimer(Duration(seconds: UPDATE_INTERVAL));
+
     if (showLoading) {
       setState(() {
         _statusText = 'Loading...';
@@ -202,7 +208,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _rescheduleUpdateTimer(Duration duration) {
-    if (_timer != null) {
+    if (_timer != null && _timer.isActive) {
       _timer.cancel();
     }
 
@@ -223,7 +229,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       });
     }
 
-    _rescheduleUpdateTimer(Duration(seconds: 5));
+    _rescheduleUpdateTimer(Duration(seconds: UPDATE_INTERVAL));
 
     super.initState();
   }
@@ -296,13 +302,18 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
+                  color: _dynamicColor,
                   onPressed: _status != Status.LOADING ? () => _updateStatus(onDoneCallback: () => setState(() => null)) : null,
                 ),
               ],
             ),
             Column(
               children: <Widget>[
-                Text('Statistics', style: TextStyle(fontStyle: FontStyle.italic)),
+                Text(
+                  'Statistics',
+                  style: TextStyle(color: _dynamicColor, fontStyle: FontStyle.italic),
+                  textAlign: TextAlign.center,
+                ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width / 8, vertical: 10),
                   child: Table(
@@ -374,5 +385,12 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       ),
       backgroundColor: backgroundColor,
     );
+  }
+
+  @override
+  void dispose() {
+    _destroySocket();
+    _timer.cancel();
+    super.dispose();
   }
 }

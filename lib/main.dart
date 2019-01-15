@@ -1,142 +1,19 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
 
-import 'customImageCircularButton.dart';
-import 'settingsView.dart';
+import 'CustomImageCircularButton.dart';
+import 'MessageHandler.dart';
+import 'SettingsView.dart';
+import 'SocketHandler.dart';
 
-const SOCKET_TIMEOUT = 5;
 const UPDATE_INTERVAL = 5;
 
 const COLOR_ON = Color.fromARGB(255, 255, 255, 255);
 const COLOR_OFF = Color.fromARGB(255, 49, 58, 73);
 
-enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE, ATALL }
 enum Status { ON, OFF, UNKNOWN, LOADING }
-enum Priority { LOW, MID, HIGH }
-
-final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-class MessageHandler {
-  static final MessageHandler _mg = MessageHandler._internal();
-
-  MessageHandler._internal();
-
-  factory MessageHandler() {
-    return _mg;
-  }
-
-  static MessageHandler getHandler() {
-    return _mg;
-  }
-
-  void showError({@required GlobalKey<ScaffoldState> key, @required String msg}) {
-    showMessage(key: key, msg: msg, error: true);
-  }
-
-  void showMessage({@required GlobalKey<ScaffoldState> key, @required String msg, bool error = false}) {
-    key.currentState.showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: error ? Colors.red[900] : null,
-      action: SnackBarAction(
-        label: 'CLOSE',
-        textColor: error ? Colors.white : DefaultTextStyle,
-        onPressed: () => key.currentState.removeCurrentSnackBar(reason: SnackBarClosedReason.remove),
-      ),
-    ));
-  }
-}
-
-class SocketHandler {
-  static final SocketHandler _sh = SocketHandler._internal();
-
-  Socket _s;
-  bool socketIsFree = true;
-  Priority currentSocketPriority = Priority.LOW;
-
-  SocketHandler._internal();
-
-  factory SocketHandler() {
-    return _sh;
-  }
-
-  void destroySocket() {
-    if (_s != null) {
-      _s.close();
-      _s.destroy();
-      _s = null;
-    }
-    socketIsFree = true;
-  }
-
-  void send(
-      {@required Commands command,
-      String url,
-      int port,
-      Function onDataCallback,
-      Function onErrorCallback,
-      Function onDoneCallback,
-      bool showMessages = true,
-      Priority priority = Priority.LOW}) {
-    final _url = url != null ? url : '192.168.4.1';
-    final _port = port != null ? port : 8888;
-    final _commandStr = command.toString().replaceAll('Commands.', '');
-
-    if (!socketIsFree && priority.index <= currentSocketPriority.index) {
-      return;
-    }
-
-    destroySocket();
-
-    socketIsFree = false;
-    currentSocketPriority = priority;
-
-    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT))
-        .then((Socket _newSocket) {
-          _s = _newSocket;
-          _s.write('$_commandStr\n');
-          _s.listen(onDataCallback != null ? onDataCallback : null,
-              onError: (exception) {
-                destroySocket();
-                if (showMessages) MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error.');
-
-                if (exception is SocketException) {
-                  debugPrint('Error: $exception');
-                } else {
-                  debugPrint('Error: $exception');
-                }
-
-                if (onErrorCallback != null) onErrorCallback();
-              },
-              cancelOnError: true,
-              onDone: () {
-                destroySocket();
-
-                if (onDoneCallback != null) onDoneCallback();
-                debugPrint('$_commandStr completed');
-              });
-        })
-        .timeout(Duration(seconds: SOCKET_TIMEOUT))
-        .catchError((exception) {
-          destroySocket();
-          if (exception is SocketException) {
-            debugPrint('Error: $exception');
-
-            // FIXME: is there really no other way?
-            if (exception.message.toLowerCase().contains('timed out')) {
-              if (showMessages) MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error: timeout.');
-            }
-          } else {
-            if (showMessages) MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error.');
-            debugPrint('Error: $exception');
-          }
-
-          if (onErrorCallback != null) onErrorCallback();
-        });
-  }
-}
 
 void main() => runApp(MyApp());
 
@@ -159,6 +36,8 @@ class SmartSocketHomePage extends StatefulWidget {
 }
 
 class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   Status __status = Status.UNKNOWN;
   Status _prevStatus = Status.UNKNOWN;
   get _status => __status;
@@ -248,6 +127,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   @override
   void initState() {
+    MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
+
     if (_status == Status.UNKNOWN) {
       _updateStatus(onDoneCallback: () {
         debugPrint('Initial status: $_status');
@@ -318,7 +199,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                 showLoading: false,
                                 onDoneCallback: () {
                                   if (_oldStatus == _status) {
-                                    MessageHandler.getHandler().showError(key: _scaffoldKey, msg: 'Error');
+                                    MessageHandler.getHandler().showError('Error: inconsistent status');
                                   }
                                 });
                           });

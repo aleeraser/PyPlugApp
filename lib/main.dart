@@ -9,8 +9,6 @@ import 'MessageHandler.dart';
 import 'SettingsView.dart';
 import 'SocketHandler.dart';
 
-const UPDATE_INTERVAL = 5;
-
 const COLOR_ON = Color.fromARGB(255, 255, 255, 255);
 const COLOR_OFF = Color.fromARGB(255, 49, 58, 73);
 
@@ -68,13 +66,52 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   SocketHandler _sh = SocketHandler();
   Timer _timer;
 
+  int _updateInterval = PrefService.getString('refresh_interval') != null ? PrefService.getString('refresh_interval') : 10;
+  set updateInterval(int newInterval) {
+    if (newInterval != _updateInterval) {
+      _updateInterval = newInterval;
+      _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
+      debugPrint(_updateInterval > 0 ? 'Rescheduled periodic update routine every ${_updateInterval}s' : 'Periodic update routine canceled');
+    }
+  }
+
   void _navigateToSettings() {
-    Navigator.of(context).pushNamed('/settings');
+    Navigator.of(context).pushNamed('/settings').then((settings) {
+      String ssid = PrefService.getString('ssid');
+      String psw = PrefService.getString('password');
+      String interval = PrefService.getString('refresh_interval');
+
+      switch (interval) {
+        case 'Never':
+          updateInterval = -1;
+          break;
+        case '5s':
+          updateInterval = 5;
+          break;
+        case '10s':
+          updateInterval = 10;
+          break;
+        case '30s':
+          updateInterval = 30;
+          break;
+        default:
+          throw Exception('Unhandled interval value $interval.');
+      }
+
+      _sh.send(
+          data: 'ATNET,$ssid,$psw',
+          showMessages: true,
+          priority: Priority.HIGH,
+          onDoneCallback: () => debugPrint('SSID and password updated.'),
+          onErrorCallback: () => setState(() {
+                _status = Status.UNKNOWN;
+              }));
+    });
   }
 
   void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW}) {
     // if called updateStatus cancel current timer and re-schedule it later
-    _rescheduleUpdateTimer(Duration(seconds: UPDATE_INTERVAL));
+    _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
 
     if (showLoading) {
       setState(() {
@@ -84,7 +121,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     }
 
     _sh.send(
-        command: Commands.ATALL,
+        data: 'ATALL',
         showMessages: showMessages,
         priority: priority,
         onDataCallback: (data) {
@@ -104,8 +141,10 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _resetPowerStat({Function onDoneCallback}) {
-    _sh.send(
+    _sh.sendCommand(
         command: Commands.ATZERO,
+        priority: Priority.HIGH,
+        showMessages: true,
         onDataCallback: (data) {
           _current = String.fromCharCodes(data);
         },
@@ -116,8 +155,11 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _rescheduleUpdateTimer(Duration duration) {
-    if (_timer != null && _timer.isActive) {
+    if (_timer != null) {
       _timer.cancel();
+      if (duration.isNegative) {
+        return;
+      }
     }
 
     _timer = Timer.periodic(duration, (timer) {
@@ -138,7 +180,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       });
     }
 
-    _rescheduleUpdateTimer(Duration(seconds: UPDATE_INTERVAL));
+    _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
 
     super.initState();
   }
@@ -190,7 +232,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                       final AudioCache audioPlayer = AudioCache();
                       const String switchAudioPath = 'sounds/switch.mp3';
 
-                      _sh.send(
+                      _sh.sendCommand(
                           command: switchButtonCommand,
                           priority: Priority.HIGH,
                           onDoneCallback: () {

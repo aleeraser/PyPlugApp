@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:preferences/preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'CustomImageCircularButton.dart';
 import 'MessageHandler.dart';
@@ -14,8 +15,11 @@ const COLOR_OFF = Color.fromARGB(255, 49, 58, 73);
 
 enum Status { ON, OFF, UNKNOWN, LOADING }
 
+SharedPreferences _persistanceService;
+
 main() async {
   await PrefService.init(prefix: 'pref_');
+  _persistanceService = await SharedPreferences.getInstance();
   runApp(MyApp());
 }
 
@@ -63,7 +67,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   SocketHandler _sh = SocketHandler();
   Timer _timer;
 
-  int _updateInterval = PrefService.getString('refresh_interval') != null ? PrefService.getString('refresh_interval') : 10;
+  int _updateInterval = _persistanceService.getString('refresh_interval') != null ? int.parse(_persistanceService.getString('refresh_interval')) : 10;
   set updateInterval(int newInterval) {
     if (newInterval != _updateInterval) {
       _updateInterval = newInterval;
@@ -73,43 +77,16 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _navigateToSettings() {
-    final Map<Object, Object> prevPrefValues = Map.unmodifiable(Map.fromIterable(PrefService.getKeys(), key: (key) => key, value: (key) => PrefService.getString(key)));
+    final Map<Object, Object> prevPrefValues = Map.fromIterable(_persistanceService.getKeys(), key: (key) => key, value: (key) => _persistanceService.get(key));
 
-    Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) => SettingsView(prevPrefValues: prevPrefValues))).then((settings) {
-      String ssid = PrefService.getString('ssid');
-      String password = PrefService.getString('password');
-      String interval = PrefService.getString('refresh_interval');
-
-      switch (interval) {
-        case 'Never':
-          updateInterval = -1;
-          break;
-        case '5s':
-          updateInterval = 5;
-          break;
-        case '10s':
-          updateInterval = 10;
-          break;
-        case '30s':
-          updateInterval = 30;
-          break;
-        default:
-          throw Exception('Unhandled interval value $interval.');
-      }
-
-      if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
-        debugPrint('Must updated ssid and/or password');
-        SocketHandler _sh = SocketHandler();
-
-        _sh.send(
-            data: 'ATNET,${PrefService.getString('ssid')},${PrefService.getString('password')}',
-            showMessages: true,
-            priority: Priority.HIGH,
-            onDoneCallback: () => debugPrint('SSID and password updated.'),
-            onErrorCallback: () {
-              MessageHandler.getHandler().showError('Error');
-            });
-      }
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+            builder: (BuildContext context) => SettingsView(
+                  prevPrefValues: prevPrefValues,
+                  persistanceService: _persistanceService,
+                )))
+        .then((returnedValue) {
+      updateInterval = int.parse(_persistanceService.get('refresh_interval'));
     });
   }
 
@@ -161,7 +138,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   void _rescheduleUpdateTimer(Duration duration) {
     if (_timer != null) {
       _timer.cancel();
-      if (duration.isNegative) {
+      if (duration == Duration.zero) {
         return;
       }
     }

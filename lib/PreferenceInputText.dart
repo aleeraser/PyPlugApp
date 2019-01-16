@@ -25,18 +25,21 @@ class _PreferenceInputTextState extends State<PreferenceInputText> {
       title: Text(widget.title),
       subtitle: widget.desc == null ? null : Text(widget.desc),
       trailing: Container(
-        width: MediaQuery.of(context).size.width * 1/2,
+        width: MediaQuery.of(context).size.width * 1 / 2,
         child: TextField(
           controller: _textEditingController,
           textAlign: TextAlign.end,
           obscureText: widget.obscureText,
           decoration: InputDecoration(border: InputBorder.none, hintText: widget.hint),
-          onSubmitted: (data) {
-            PrefService.setString(widget.localKey, data);
-            if (widget.onSubmitted != null) widget.onSubmitted(data);
-          },
+          onChanged: _save,
+          onSubmitted: _save,
         ),
       ),
     );
+  }
+
+  void _save(String data) {
+    PrefService.setString(widget.localKey, data);
+    if (widget.onSubmitted != null) widget.onSubmitted(data);
   }
 }

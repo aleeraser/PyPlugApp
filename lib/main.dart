@@ -28,9 +28,6 @@ class MyApp extends StatelessWidget {
         primaryColor: COLOR_OFF,
       ),
       home: SmartSocketHomePage(),
-      routes: <String, WidgetBuilder>{
-        '/settings': (BuildContext context) => SettingsView(),
-      },
     );
   }
 }
@@ -76,9 +73,11 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _navigateToSettings() {
-    Navigator.of(context).pushNamed('/settings').then((settings) {
+    final Map<Object, Object> prevPrefValues = Map.unmodifiable(Map.fromIterable(PrefService.getKeys(), key: (key) => key, value: (key) => PrefService.getString(key)));
+
+    Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) => SettingsView(prevPrefValues: prevPrefValues))).then((settings) {
       String ssid = PrefService.getString('ssid');
-      String psw = PrefService.getString('password');
+      String password = PrefService.getString('password');
       String interval = PrefService.getString('refresh_interval');
 
       switch (interval) {
@@ -98,14 +97,19 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
           throw Exception('Unhandled interval value $interval.');
       }
 
-      _sh.send(
-          data: 'ATNET,$ssid,$psw',
-          showMessages: true,
-          priority: Priority.HIGH,
-          onDoneCallback: () => debugPrint('SSID and password updated.'),
-          onErrorCallback: () => setState(() {
-                _status = Status.UNKNOWN;
-              }));
+      if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
+        debugPrint('Must updated ssid and/or password');
+        SocketHandler _sh = SocketHandler();
+
+        _sh.send(
+            data: 'ATNET,${PrefService.getString('ssid')},${PrefService.getString('password')}',
+            showMessages: true,
+            priority: Priority.HIGH,
+            onDoneCallback: () => debugPrint('SSID and password updated.'),
+            onErrorCallback: () {
+              MessageHandler.getHandler().showError('Error');
+            });
+      }
     });
   }
 
@@ -164,7 +168,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
     _timer = Timer.periodic(duration, (timer) {
       if (_sh.socketIsFree) {
-        debugPrint('Update');
+        // debugPrint('Update');
         _updateStatus(showMessages: false);
       }
     });

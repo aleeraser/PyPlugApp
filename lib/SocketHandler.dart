@@ -65,6 +65,7 @@ class SocketHandler {
     final _port = port != null ? port : 8888;
 
     if (!socketIsFree && priority.index <= currentSocketPriority.index) {
+      debugPrint('Couldn\'t perform socket operation since another socket operation with equal or higher priority is still in progress.');
       return;
     }
 
@@ -96,7 +97,7 @@ class SocketHandler {
                 destroySocket();
 
                 if (onDoneCallback != null) onDoneCallback();
-                debugPrint('$data completed');
+                // debugPrint('$data completed');
               });
         })
         .timeout(Duration(seconds: SOCKET_TIMEOUT))

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:preferences/preferences.dart';
 
+import 'MessageHandler.dart';
 import 'PreferenceInputText.dart';
-
-// final Map<Object, Object> res = {};
+import 'SocketHandler.dart';
 
 class SettingsView extends StatelessWidget {
+  final Map<Object, Object> prevPrefValues;
+
+  SettingsView({Key key, @required this.prevPrefValues}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    // res.clear();
-
     return Scaffold(
         appBar: AppBar(
           title: const Text('Settings'),
@@ -22,6 +24,30 @@ class SettingsView extends StatelessWidget {
               Navigator.of(context).pop();
             },
           ),
+          actions: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: () {
+                // NOTE: check if you must/can do something while inside this view with the other updated preferences
+
+                String ssid = PrefService.getString('ssid');
+                String password = PrefService.getString('password');
+                if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
+                  debugPrint('Must updated ssid and/or password');
+                  SocketHandler _sh = SocketHandler();
+
+                  _sh.send(
+                      data: 'ATNET,${PrefService.getString('ssid')},${PrefService.getString('password')}',
+                      showMessages: true,
+                      priority: Priority.HIGH,
+                      onDoneCallback: () => debugPrint('SSID and password updated.'),
+                      onErrorCallback: () {
+                        MessageHandler.getHandler().showError('Error');
+                      });
+                }
+              },
+            ),
+          ],
         ),
         body: SettingsViewBody());
   }
@@ -48,7 +74,11 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
         'password',
         hint: 'Enter password',
         obscureText: true,
-        // onSubmitted: (val) => res['psw'] = val,
+        // onSubmitted: (val) => res['password'] = val,
+      ),
+      PreferenceText(
+        'Warning: changing one of the values above will cause the socket to reboot and be temporary unavailable for about 5s/10s.',
+        style: TextStyle(fontStyle: FontStyle.italic),
       ),
       PreferenceTitle('Others'),
       DropdownPreference(
@@ -56,6 +86,7 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
         'refresh_interval',
         defaultVal: '5s',
         values: ['Never', '5s', '10s', '30s'],
+        // onChange: (val) => res['refresh_interval'] = val,
         // onChange: (val) {
         //   switch (val) {
         //     case 'Never':

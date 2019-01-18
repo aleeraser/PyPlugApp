@@ -52,7 +52,7 @@ class SettingsView extends StatelessWidget {
     debugPrint('[start] persistanceService.getKeys(): ${persistanceService.getKeys()}');
   }
 
-  void persistData() {
+  void _persistData() {
     debugPrint('[persist] prevPref: $prevPrefValues');
 
     preferences.keys.forEach((key) {
@@ -76,7 +76,7 @@ class SettingsView extends StatelessWidget {
     String password = persistanceService.getString('password');
     if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
       debugPrint('Must update ssid and/or password');
-      SocketHandler _sh = SocketHandler.getInstance();
+      final SocketHandler _sh = SocketHandler.getInstance();
 
       _sh.send(
           data: 'ATNET,${persistanceService.getString('ssid')},${persistanceService.getString('password')}',
@@ -105,16 +105,15 @@ class SettingsView extends StatelessWidget {
               // workaround for closing the keyboard
               FocusScope.of(context).requestFocus(new FocusNode());
 
-              persistData();
+              _persistData();
 
-              // Navigator.of(context).pop(res);
               Navigator.of(context).pop();
             },
           ),
           actions: <Widget>[
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: persistData,
+              onPressed: _persistData,
             ),
           ],
         ),
@@ -197,9 +196,8 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
         ),
         PreferenceButton(
           text: 'Enter (Web)REPL mode',
-          // textColor: Colors.deepOrange[500],
           onPressed: () {
-            SocketHandler _sh = SocketHandler.getInstance();
+            final SocketHandler _sh = SocketHandler.getInstance();
 
             _sh.send(
                 data: 'ATREPL',
@@ -213,9 +211,8 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
         ),
         PreferenceButton(
           text: 'Reboot device',
-          textColor: Colors.red[700],
           onPressed: () {
-            SocketHandler _sh = SocketHandler.getInstance();
+            final SocketHandler _sh = SocketHandler.getInstance();
 
             _sh.send(
                 data: 'ATREBOOT',
@@ -375,7 +372,6 @@ class PreferenceHeader extends StatelessWidget {
         text,
         textAlign: TextAlign.left,
         style: TextStyle(color: textColor != null ? textColor : Colors.lightBlue[900], fontWeight: FontWeight.bold),
-        // textScaleFactor: 1.1,
       ),
     );
   }

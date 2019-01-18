@@ -18,7 +18,7 @@ class SocketHandler {
 
   SocketHandler._internal();
 
-  factory SocketHandler() {
+  factory SocketHandler.getInstance() {
     return _sh;
   }
 

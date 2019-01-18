@@ -64,7 +64,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   String _statusText = 'Status unknown';
   Color _dynamicColor;
 
-  SocketHandler _sh = SocketHandler();
+  SocketHandler _sh = SocketHandler.getInstance();
   Timer _timer;
 
   int _updateInterval = _persistanceService.getString('refresh_interval') != null ? int.parse(_persistanceService.getString('refresh_interval')) : 10;

@@ -76,7 +76,7 @@ class SettingsView extends StatelessWidget {
     String password = persistanceService.getString('password');
     if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
       debugPrint('Must update ssid and/or password');
-      SocketHandler _sh = SocketHandler();
+      SocketHandler _sh = SocketHandler.getInstance();
 
       _sh.send(
           data: 'ATNET,${persistanceService.getString('ssid')},${persistanceService.getString('password')}',
@@ -134,7 +134,6 @@ class SettingsViewBody extends StatefulWidget {
 }
 
 class _SettingsViewBodyState extends State<SettingsViewBody> {
-  final TextStyle headerStyle = TextStyle(color: Colors.lightBlue[900], fontWeight: FontWeight.bold);
   String currentRefreshInterval;
 
   TextEditingController _ssidTextEditingController = new TextEditingController();
@@ -150,41 +149,41 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        PreferencesHeader(text: 'Network', headerStyle: headerStyle),
-        PreferencesInputText(
+        PreferenceHeader(text: 'Network'),
+        PreferenceInputText(
           text: 'SSID',
           textEditingController: _ssidTextEditingController,
           hint: 'Enter SSID',
           preferenceKey: 'ssid',
         ),
-        PreferencesInputText(
+        PreferenceInputText(
           text: 'Password',
           textEditingController: _passwordTextEditingController,
           hint: 'Enter Password',
           preferenceKey: 'password',
           obscureText: true,
         ),
-        PreferencesText('Warning: changing one of the values above will cause the device to reboot and to be temporary unavailable for about 10s/20s.'),
-        PreferencesHeader(text: 'Others', headerStyle: headerStyle),
-        PreferencesDropdownButton(
+        PreferenceText('Warning: changing one of the values above will cause the device to reboot and to be temporary unavailable for about 10s/20s.'),
+        PreferenceHeader(text: 'Others'),
+        PreferenceDropdownButton(
           text: 'Refresh Interval',
           preferenceKey: 'refresh_interval',
           items: [
             DropdownMenuItem(
               value: '0',
-              child: Text('Never'),
+              child: const Text('Never'),
             ),
             DropdownMenuItem(
               value: '5',
-              child: Text('5 seconds'),
+              child: const Text('5 seconds'),
             ),
             DropdownMenuItem(
               value: '10',
-              child: Text('10 seconds'),
+              child: const Text('10 seconds'),
             ),
             DropdownMenuItem(
               value: '30',
-              child: Text('30 seconds'),
+              child: const Text('30 seconds'),
             )
           ],
           currentRefreshInterval: currentRefreshInterval,
@@ -192,13 +191,76 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
                 currentRefreshInterval = val;
               }),
         ),
+        PreferenceHeader(
+          text: 'Danger area',
+          textColor: Colors.red[700],
+        ),
+        PreferenceButton(
+          text: 'Enter (Web)REPL mode',
+          // textColor: Colors.deepOrange[500],
+          onPressed: () {
+            SocketHandler _sh = SocketHandler.getInstance();
+
+            _sh.send(
+                data: 'ATREPL',
+                showMessages: true,
+                priority: Priority.HIGH,
+                onDoneCallback: () => debugPrint('Entered (Web)REPL mode.'),
+                onErrorCallback: () {
+                  MessageHandler.getHandler().showError('Error');
+                });
+          },
+        ),
+        PreferenceButton(
+          text: 'Reboot device',
+          textColor: Colors.red[700],
+          onPressed: () {
+            SocketHandler _sh = SocketHandler.getInstance();
+
+            _sh.send(
+                data: 'ATREBOOT',
+                showMessages: true,
+                priority: Priority.HIGH,
+                onDoneCallback: () => debugPrint('Rebooted.'),
+                onErrorCallback: () {
+                  MessageHandler.getHandler().showError('Error');
+                });
+          },
+        )
       ],
     );
   }
 }
 
-class PreferencesDropdownButton extends StatelessWidget {
-  const PreferencesDropdownButton({Key key, @required this.text, @required this.currentRefreshInterval, this.onChanged, @required this.items, @required this.preferenceKey})
+class PreferenceButton extends StatelessWidget {
+  final String text;
+  final Function onPressed;
+  final double width;
+  final Color textColor;
+
+  const PreferenceButton({Key key, @required this.text, @required this.onPressed, this.width, this.textColor}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 15.0),
+      child: Center(
+        child: Container(
+          width: width != null ? width : MediaQuery.of(context).size.width * 1 / 2,
+          child: MaterialButton(
+            color: Colors.blueGrey[50],
+            child: Text(text),
+            textColor: textColor != null ? textColor : null,
+            onPressed: onPressed,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PreferenceDropdownButton extends StatelessWidget {
+  const PreferenceDropdownButton({Key key, @required this.text, @required this.currentRefreshInterval, this.onChanged, @required this.items, @required this.preferenceKey})
       : super(key: key);
 
   final String text;
@@ -239,8 +301,8 @@ class PreferencesDropdownButton extends StatelessWidget {
   }
 }
 
-class PreferencesInputText extends StatelessWidget {
-  PreferencesInputText({Key key, @required this.text, @required this.preferenceKey, @required this.textEditingController, this.hint, this.obscureText = false}) : super(key: key);
+class PreferenceInputText extends StatelessWidget {
+  PreferenceInputText({Key key, @required this.text, @required this.preferenceKey, @required this.textEditingController, this.hint, this.obscureText = false}) : super(key: key);
 
   final TextEditingController textEditingController;
   final String text;
@@ -281,8 +343,8 @@ class PreferencesInputText extends StatelessWidget {
   }
 }
 
-class PreferencesText extends StatelessWidget {
-  const PreferencesText(this.text, {Key key}) : super(key: key);
+class PreferenceText extends StatelessWidget {
+  const PreferenceText(this.text, {Key key}) : super(key: key);
 
   final String text;
 
@@ -295,15 +357,15 @@ class PreferencesText extends StatelessWidget {
   }
 }
 
-class PreferencesHeader extends StatelessWidget {
-  const PreferencesHeader({
+class PreferenceHeader extends StatelessWidget {
+  const PreferenceHeader({
     Key key,
-    @required this.headerStyle,
     @required this.text,
+    this.textColor,
   }) : super(key: key);
 
-  final TextStyle headerStyle;
   final String text;
+  final Color textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +374,7 @@ class PreferencesHeader extends StatelessWidget {
       child: Text(
         text,
         textAlign: TextAlign.left,
-        style: headerStyle,
+        style: TextStyle(color: textColor != null ? textColor : Colors.lightBlue[900], fontWeight: FontWeight.bold),
         // textScaleFactor: 1.1,
       ),
     );

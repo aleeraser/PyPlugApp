@@ -164,24 +164,48 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
           preferenceKey: 'password',
           obscureText: true,
         ),
-        PreferencesText('Warning: changing one of the values above will cause the socket to reboot and be temporary unavailable for about 10s/20s.'),
+        PreferencesText('Warning: changing one of the values above will cause the device to reboot and to be temporary unavailable for about 10s/20s.'),
         PreferencesHeader(text: 'Others', headerStyle: headerStyle),
         PreferencesDropdownButton(
+          text: 'Refresh Interval',
+          preferenceKey: 'refresh_interval',
+          items: [
+            DropdownMenuItem(
+              value: '0',
+              child: Text('Never'),
+            ),
+            DropdownMenuItem(
+              value: '5',
+              child: Text('5 seconds'),
+            ),
+            DropdownMenuItem(
+              value: '10',
+              child: Text('10 seconds'),
+            ),
+            DropdownMenuItem(
+              value: '30',
+              child: Text('30 seconds'),
+            )
+          ],
           currentRefreshInterval: currentRefreshInterval,
           onChanged: (val) => setState(() {
                 currentRefreshInterval = val;
               }),
-        )
+        ),
       ],
     );
   }
 }
 
 class PreferencesDropdownButton extends StatelessWidget {
-  const PreferencesDropdownButton({Key key, @required this.currentRefreshInterval, this.onChanged}) : super(key: key);
+  const PreferencesDropdownButton({Key key, @required this.text, @required this.currentRefreshInterval, this.onChanged, @required this.items, @required this.preferenceKey})
+      : super(key: key);
 
+  final String text;
+  final String preferenceKey;
   final String currentRefreshInterval;
   final Function onChanged;
+  final List<DropdownMenuItem> items;
 
   final double _horizontalPadding = 16.0;
 
@@ -195,34 +219,17 @@ class PreferencesDropdownButton extends StatelessWidget {
           Container(
               width: (MediaQuery.of(context).size.width - _horizontalPadding) * 3 / 6,
               child: Text(
-                'Refresh Interval',
+                text,
                 textScaleFactor: 1.2,
               )),
           Container(
             width: (MediaQuery.of(context).size.width - _horizontalPadding) * 2 / 6,
             child: DropdownButton(
               onChanged: (val) {
-                preferences['refresh_interval'] = val;
+                preferences[preferenceKey] = val;
                 if (onChanged != null) onChanged(val);
               },
-              items: [
-                DropdownMenuItem(
-                  value: '0',
-                  child: Text('Never'),
-                ),
-                DropdownMenuItem(
-                  value: '5',
-                  child: Text('5 seconds'),
-                ),
-                DropdownMenuItem(
-                  value: '10',
-                  child: Text('10 seconds'),
-                ),
-                DropdownMenuItem(
-                  value: '30',
-                  child: Text('30 seconds'),
-                )
-              ],
+              items: items,
               value: currentRefreshInterval,
             ),
           )

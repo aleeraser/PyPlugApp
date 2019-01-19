@@ -9,9 +9,12 @@ final Map<String, Object> preferences = Map();
 class SettingsView extends StatelessWidget {
   final Map<Object, Object> prevPrefValues;
   final SharedPreferences persistanceService;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   SettingsView({@required this.prevPrefValues, @required this.persistanceService}) : super() {
     // debugPrint('[start] prevPref: $prevPrefValues');
+
+    MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
 
     persistanceService.getKeys().forEach((key) {
       var val = persistanceService.get(key);
@@ -96,6 +99,7 @@ class SettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+        key: _scaffoldKey,
         appBar: AppBar(
           title: const Text('Settings'),
           centerTitle: true,

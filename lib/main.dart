@@ -86,6 +86,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                   persistanceService: _persistanceService,
                 )))
         .then((returnedValue) {
+      MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
+
       updateInterval = int.parse(_persistanceService.get('refresh_interval'));
     });
   }

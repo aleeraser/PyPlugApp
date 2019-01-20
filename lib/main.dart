@@ -364,9 +364,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                                     ),
                                                     onPressed: () {
                                                       _resetPowerStat(onDoneCallback: () {
-                                                        setState(() {
-                                                          _power = '0.000';
-                                                        });
+                                                        _updateStatus();
                                                       });
                                                       Navigator.of(context).pop();
                                                     }),

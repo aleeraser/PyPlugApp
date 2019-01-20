@@ -44,6 +44,11 @@ class SmartSocketHomePage extends StatefulWidget {
 class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  final TextEditingController _deviceNameEditingController =
+      TextEditingController(text: _persistanceService.getString('device_name') != null ? _persistanceService.getString('device_name') : 'device_name');
+  bool _editingTitle = false;
+  FocusNode _deviceNameFocusNode;
+
   Status __status = Status.UNKNOWN;
   Status _prevStatus = Status.UNKNOWN;
   get _status => __status;
@@ -153,9 +158,16 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     });
   }
 
+  bool canI() {
+    // progressively add any blocking condition
+    return _editingTitle == false;
+  }
+
   @override
   void initState() {
     MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
+
+    _deviceNameFocusNode = FocusNode();
 
     if (_status == Status.UNKNOWN) {
       _updateStatus(onDoneCallback: () {
@@ -188,16 +200,80 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
       backgroundColor = _status == Status.ON ? COLOR_ON : COLOR_OFF;
     }
 
+    // the callback gets called every time this function completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_editingTitle) {
+        // if editing title give focus to the TextField
+        FocusScope.of(context).requestFocus(_deviceNameFocusNode);
+      }
+    });
+
     return Scaffold(
       key: _scaffoldKey,
+      resizeToAvoidBottomPadding: false,
       appBar: AppBar(
-        title: const Text('Smart Socket'),
+        title: Container(
+          width: MediaQuery.of(context).size.width / 2,
+          child: _editingTitle
+              ? TextField(
+                  autofocus: true,
+                  focusNode: _deviceNameFocusNode,
+                  style: Theme.of(context).textTheme.title.merge(TextStyle(color: COLOR_ON)),
+                  controller: _deviceNameEditingController,
+                  // maxLength: 20,
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration.collapsed(
+                      hintText: 'Enter device name', hintStyle: Theme.of(context).textTheme.title.merge(TextStyle(fontWeight: FontWeight.normal, color: Colors.grey))),
+                  onSubmitted: (val) {
+                    if (val == '') {
+                      _deviceNameEditingController.text = _persistanceService.getString('device_name');
+                    } else {
+                      _persistanceService.setString('device_name', val);
+                    }
+                    setState(() {
+                      _editingTitle = false;
+                    });
+                  },
+                  onEditingComplete: () {
+                    // close keyboard
+                    FocusScope.of(context).requestFocus(new FocusNode());
+
+                    setState(() {
+                      _editingTitle = false;
+                    });
+                  },
+                )
+              : Text(
+                  _deviceNameEditingController.text,
+                  textAlign: TextAlign.center,
+                ),
+        ),
         centerTitle: true,
         elevation: 0.0,
         actions: <Widget>[
+          _editingTitle
+              ? IconButton(
+                  icon: const Icon(Icons.check),
+                  onPressed: _deviceNameEditingController.text.length > 0
+                      ? () {
+                          // close keyboard
+                          FocusScope.of(context).requestFocus(new FocusNode());
+
+                          setState(() {
+                            _editingTitle = false;
+                          });
+                        }
+                      : null,
+                )
+              : IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    setState(() => _editingTitle = true);
+                  },
+                ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: _navigateToSettings,
+            onPressed: canI() ? _navigateToSettings : null,
           ),
         ],
       ),
@@ -211,27 +287,29 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 CustomImageCircularButton(
                     sideLength: MediaQuery.of(context).size.width / 2,
                     assetImage: assetImage,
-                    onTap: () {
-                      final AudioCache audioPlayer = AudioCache();
-                      const String switchAudioPath = 'sounds/switch.mp3';
+                    onTap: _status == Status.UNKNOWN || _status == Status.LOADING || !canI()
+                        ? null
+                        : () {
+                            final AudioCache audioPlayer = AudioCache();
+                            const String switchAudioPath = 'sounds/switch.mp3';
 
-                      _sh.sendCommand(
-                          command: switchButtonCommand,
-                          priority: Priority.HIGH,
-                          onDoneCallback: () {
-                            audioPlayer.play(switchAudioPath);
-
-                            final Status _oldStatus = _status;
-
-                            _updateStatus(
-                                showLoading: false,
+                            _sh.sendCommand(
+                                command: switchButtonCommand,
+                                priority: Priority.HIGH,
                                 onDoneCallback: () {
-                                  if (_oldStatus == _status) {
-                                    MessageHandler.getHandler().showError('Error: inconsistent status');
-                                  }
+                                  audioPlayer.play(switchAudioPath);
+
+                                  final Status _oldStatus = _status;
+
+                                  _updateStatus(
+                                      showLoading: false,
+                                      onDoneCallback: () {
+                                        if (_oldStatus == _status) {
+                                          MessageHandler.getHandler().showError('Error: inconsistent status');
+                                        }
+                                      });
                                 });
-                          });
-                    }),
+                          }),
                 Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: Text(_statusText, style: TextStyle(color: _dynamicColor), textScaleFactor: 1.3),
@@ -239,7 +317,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   color: _dynamicColor,
-                  onPressed: _status != Status.LOADING ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
+                  onPressed: _status != Status.LOADING && canI() ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
                 ),
               ],
             ),
@@ -264,31 +342,36 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                         )),
                         TableCell(
                             child: GestureDetector(
-                                onTap: () => showDialog(
-                                    context: context,
-                                    builder: (_) => AlertDialog(
-                                          title: Text('Reset \'Power\' value?'),
-                                          actions: <Widget>[
-                                            FlatButton(
-                                                child: const Text('Back'),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                }),
-                                            FlatButton(
-                                                child: Text(
-                                                  'Reset value',
-                                                  style: TextStyle(color: Colors.red[800]),
-                                                ),
-                                                onPressed: () {
-                                                  _resetPowerStat(onDoneCallback: () {
-                                                    setState(() {
-                                                      _power = '0.000';
-                                                    });
-                                                  });
-                                                  Navigator.of(context).pop();
-                                                }),
-                                          ],
-                                        )),
+                                onTap: _status == Status.UNKNOWN || _status == Status.LOADING || !canI()
+                                    ? null
+                                    : () => showDialog(
+                                        context: context,
+                                        builder: (_) => AlertDialog(
+                                              title: Text('Reset \'Power\' value?'),
+                                              actions: <Widget>[
+                                                FlatButton(
+                                                    child: Text(
+                                                      'Back',
+                                                      style: TextStyle(color: Colors.lightBlue[900]),
+                                                    ),
+                                                    onPressed: () {
+                                                      Navigator.of(context).pop();
+                                                    }),
+                                                FlatButton(
+                                                    child: Text(
+                                                      'Reset value',
+                                                      style: TextStyle(color: Colors.red[800]),
+                                                    ),
+                                                    onPressed: () {
+                                                      _resetPowerStat(onDoneCallback: () {
+                                                        setState(() {
+                                                          _power = '0.000';
+                                                        });
+                                                      });
+                                                      Navigator.of(context).pop();
+                                                    }),
+                                              ],
+                                            )),
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: Text('Power (W)\n$_power', style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
@@ -303,10 +386,39 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 IconButton(
-                  icon: const Icon(Icons.adb),
-                  onPressed: () {
-                    _updateStatus();
-                  },
+                  icon: const Icon(Icons.timer),
+                  onPressed: _status == Status.UNKNOWN || !canI()
+                      ? null
+                      : () {
+                          // showTimePicker(context: context, initialTime: TimeOfDay.now()).then((time) {
+                          //   debugPrint(time.toString());
+                          // });
+                          showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                    title: Text('Set timer'),
+                                    content: Text('stuff'),
+                                    actions: <Widget>[
+                                      FlatButton(
+                                          child: Text(
+                                            'Cancel',
+                                            style: TextStyle(color: Colors.red[800]),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          }),
+                                      FlatButton(
+                                          child: Text(
+                                            'Set',
+                                            style: TextStyle(color: Colors.lightBlue[900]),
+                                          ),
+                                          onPressed: () {
+                                            debugPrint('coming');
+                                            Navigator.of(context).pop();
+                                          }),
+                                    ],
+                                  ));
+                        },
                 ),
                 IconButton(
                   icon: const Icon(Icons.cancel),
@@ -325,6 +437,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   @override
   void dispose() {
+    _deviceNameFocusNode.dispose();
     _sh.destroySocket();
     _timer.cancel();
     super.dispose();

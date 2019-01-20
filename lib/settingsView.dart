@@ -166,7 +166,12 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
           preferenceKey: 'password',
           obscureText: true,
         ),
-        PreferenceText('Warning: changing one of the values above will cause the device to reboot and to be temporary unavailable for about 10s/20s.'),
+        PreferenceText(
+            textWidget: const Text(
+                'Warning: changing one of the values above will cause the device to be temporary unavailable for about 10s/20s if connected to a wireless hotspot.',
+                textScaleFactor: 1.1,
+                textAlign: TextAlign.left,
+                style: TextStyle(fontStyle: FontStyle.italic))),
         PreferenceHeader(text: 'Others'),
         PreferenceDropdownButton(
           text: 'Refresh Interval',
@@ -345,15 +350,18 @@ class PreferenceInputText extends StatelessWidget {
 }
 
 class PreferenceText extends StatelessWidget {
-  const PreferenceText(this.text, {Key key}) : super(key: key);
+  const PreferenceText({Key key, this.text, this.textWidget}) : super(key: key);
 
   final String text;
+  final Text textWidget;
 
   @override
   Widget build(BuildContext context) {
+    assert(text != null || textWidget != null);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      child: Text(text, textScaleFactor: 1.1, textAlign: TextAlign.left, style: TextStyle(fontStyle: FontStyle.italic)),
+      child: textWidget != null ? textWidget : Text(text),
     );
   }
 }

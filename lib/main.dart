@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
-import 'package:preferences/preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'CustomImageCircularButton.dart';
@@ -18,7 +17,6 @@ enum Status { ON, OFF, UNKNOWN, LOADING }
 SharedPreferences _persistanceService;
 
 main() async {
-  await PrefService.init(prefix: 'pref_');
   _persistanceService = await SharedPreferences.getInstance();
   runApp(MyApp());
 }

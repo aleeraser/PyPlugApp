@@ -153,6 +153,14 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
           _current = sData[1];
           _power = sData[2];
+
+          _timerSeconds = int.parse(sData[3]);
+          if (_timerSeconds >= 0) _timerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
+
+          _persistanceService.setString('ssid', sData[5]);
+          _persistanceService.setString('password', sData[6]);
+
+          debugPrint(sData.toString());
         },
         onDoneCallback: () => setState(() {
               if (onDoneCallback != null) onDoneCallback();
@@ -218,17 +226,6 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     if (_status == Status.UNKNOWN) {
       _updateStatus(onDoneCallback: () {
         debugPrint('Initial status: $_status');
-
-        _sh.send(
-            data: 'ATTIMER,GET',
-            showMessages: true,
-            priority: Priority.HIGH,
-            onDataCallback: (data) {
-              _timerSeconds = int.parse(String.fromCharCodes(data).split(',')[0]);
-            },
-            onErrorCallback: () => setState(() {
-                  _status = Status.UNKNOWN;
-                }));
       });
     }
 

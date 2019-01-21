@@ -72,6 +72,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   Timer _updateStatusTimer;
 
   Timer _countdownTimer;
+  Commands _timerCommand;
   int __timerSeconds = 0;
   get _timerSeconds => __timerSeconds;
   set _timerSeconds(int seconds) {
@@ -95,6 +96,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (_timerSeconds <= 0) {
         _countdownTimer.cancel();
+        _timerCommand = null;
         return;
       }
 
@@ -451,10 +453,20 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                   context: context,
                                   builder: (_) {
                                     return Theme(
-                                      data: Theme.of(context).copyWith(dialogBackgroundColor: COLOR_OFF),
+                                      data: Theme.of(context).copyWith(dialogBackgroundColor: COLOR_OFF, canvasColor: COLOR_OFF),
                                       child: AlertDialog(
-                                        // title: Text('Set timer', style: TextStyle(color: Colors.blueGrey[100])),
-                                        content: durationPicker,
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: <Widget>[
+                                            durationPicker,
+                                            TimerCommandDropdown(
+                                              timerCommand: _timerCommand,
+                                              status: _status,
+                                              onChanged: (val) => _timerCommand = val,
+                                            )
+                                          ],
+                                        ),
                                         actions: <Widget>[
                                           FlatButton(
                                               child: Text('Close', style: TextStyle(color: Colors.blueGrey[200])),
@@ -475,6 +487,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                                         priority: Priority.HIGH,
                                                         onDoneCallback: () {
                                                           _countdownTimer.cancel();
+                                                          _timerCommand = null;
                                                           _timerSeconds = 0;
                                                           Navigator.of(context).pop();
                                                         },
@@ -486,7 +499,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                               child: Text('Set'),
                                               onPressed: () {
                                                 _sh.send(
-                                                    data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_status == Status.ON ? 'ATOFF' : 'ATON'}',
+                                                    data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_timerCommand.toString().split('.')[1]}',
                                                     showMessages: true,
                                                     priority: Priority.HIGH,
                                                     onDoneCallback: () {
@@ -530,5 +543,56 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     _sh.destroySocket();
     _updateStatusTimer.cancel();
     super.dispose();
+  }
+}
+
+class TimerCommandDropdown extends StatefulWidget {
+  TimerCommandDropdown({
+    Key key,
+    @required this.timerCommand,
+    @required this.status,
+    @required this.onChanged,
+  }) : super(key: key);
+
+  final Commands timerCommand;
+  final Status status;
+  final Function onChanged;
+
+  @override
+  State<StatefulWidget> createState() => TimerCommandDropdownState(timerCommand);
+}
+
+class TimerCommandDropdownState extends State<TimerCommandDropdown> {
+  TimerCommandDropdownState(this.timerCommand);
+
+  Commands timerCommand;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: <Widget>[
+        Text('Action to execute', style: TextStyle(color: Colors.blueGrey[200])),
+        DropdownButton<Commands>(
+          items: [
+            DropdownMenuItem(
+              child: Text('Turn off', style: TextStyle(color: Colors.blueGrey[200])),
+              value: Commands.ATOFF,
+            ),
+            DropdownMenuItem(
+              child: Text('Turn on', style: TextStyle(color: Colors.blueGrey[200])),
+              value: Commands.ATON,
+            ),
+          ],
+          value: timerCommand == null ? widget.status == Status.ON ? Commands.ATOFF : Commands.ATON : timerCommand,
+          onChanged: (val) {
+            if (widget.onChanged != null) widget.onChanged(val);
+            setState(() {
+              timerCommand = val;
+            });
+          },
+        ),
+      ],
+    );
   }
 }

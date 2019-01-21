@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'CustomImageCircularButton.dart';
+import 'DurationPicker.dart';
 import 'MessageHandler.dart';
 import 'SettingsView.dart';
 import 'SocketHandler.dart';
@@ -69,6 +70,16 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
 
   SocketHandler _sh = SocketHandler.getInstance();
   Timer _timer;
+  int __timerSeconds = 0;
+  get _timerSeconds => __timerSeconds;
+  set _timerSeconds(int seconds) {
+    if (seconds > 0 && seconds != __timerSeconds)
+    __timerSeconds = seconds;
+
+    // TODO: funzione che mostra il countdown dei secondi
+    // TODO: all'avvio controlla se c'e' un timer attivo
+    // TODO: possibilita' di cancellare un timer attivo
+  }
 
   int _updateInterval = _persistanceService.getString('refresh_interval') != null ? int.parse(_persistanceService.getString('refresh_interval')) : 10;
   set updateInterval(int newInterval) {
@@ -183,6 +194,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     Color _tableBorderColor, backgroundColor;
     AssetImage assetImage;
     Commands switchButtonCommand;
+
+    DurationPicker durationPicker = DurationPicker(darkTheme: true);
 
     if (_status == Status.LOADING || _status == Status.UNKNOWN) {
       _tableBorderColor = _prevStatus == Status.ON ? Colors.grey[200] : Colors.blueGrey[800];
@@ -381,40 +394,58 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.timer),
-                  onPressed: _status == Status.UNKNOWN || !canI()
-                      ? null
-                      : () {
-                          // showTimePicker(context: context, initialTime: TimeOfDay.now()).then((time) {
-                          //   debugPrint(time.toString());
-                          // });
-                          showDialog(
-                              context: context,
-                              builder: (_) => AlertDialog(
-                                    title: Text('Set timer'),
-                                    content: Text('stuff'),
-                                    actions: <Widget>[
-                                      FlatButton(
-                                          child: Text(
-                                            'Cancel',
-                                            style: TextStyle(color: Colors.red[800]),
-                                          ),
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
-                                          }),
-                                      FlatButton(
-                                          child: Text(
-                                            'Set',
-                                            style: TextStyle(color: Colors.lightBlue[900]),
-                                          ),
-                                          onPressed: () {
-                                            debugPrint('coming');
-                                            Navigator.of(context).pop();
-                                          }),
-                                    ],
-                                  ));
-                        },
+                Column(
+                  children: <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.timer),
+                      onPressed: _status == Status.UNKNOWN || !canI()
+                          ? null
+                          : () {
+                              showDialog(
+                                  context: context,
+                                  builder: (_) {
+                                    return Theme(
+                                      data: Theme.of(context).copyWith(dialogBackgroundColor: COLOR_OFF),
+                                      child: AlertDialog(
+                                        // title: Text('Set timer', style: TextStyle(color: Colors.blueGrey[100])),
+                                        content: durationPicker,
+                                        actions: <Widget>[
+                                          FlatButton(
+                                              child: Text(
+                                                'Cancel',
+                                                style: TextStyle(color: Colors.red[800]),
+                                              ),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              }),
+                                          FlatButton(
+                                              child: Text(
+                                                'Set',
+                                                style: TextStyle(color: Colors.blueGrey[200]),
+                                              ),
+                                              onPressed: () {
+                                                _sh.send(
+                                                    data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_status == Status.ON ? 'ATOFF' : 'ATON'}',
+                                                    showMessages: true,
+                                                    priority: Priority.HIGH,
+                                                    onDoneCallback: () => setState(() {
+                                                          Navigator.of(context).pop();
+                                                          _timerSeconds = durationPicker.getSeconds();
+                                                        }),
+                                                    onErrorCallback: () => setState(() {
+                                                          Navigator.of(context).pop();
+                                                          _status = Status.UNKNOWN;
+                                                        }));
+                                              }),
+                                        ],
+                                      ),
+                                    );
+                                  });
+                            },
+                    ),
+                    Text(
+                        '${Duration(seconds: _timerSeconds).inHours}:${Duration(seconds: _timerSeconds).inMinutes - Duration(seconds: _timerSeconds).inHours * 60}:${Duration(seconds: _timerSeconds - Duration(seconds: _timerSeconds).inMinutes * 60).inSeconds}')
+                  ],
                 ),
                 IconButton(
                   icon: const Icon(Icons.cancel),

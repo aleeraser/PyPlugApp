@@ -30,81 +30,79 @@ class DurationPickerState extends State<DurationPicker> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height / 2,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Column(
-            children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  _buildTimerVal('h'),
-                  _buildTimerVal(':'),
-                  _buildTimerVal('m'),
-                  _buildTimerVal(':'),
-                  _buildTimerVal('s'),
-                ],
-              ),
-            ],
-          ),
-          Padding(
-            padding: EdgeInsets.only(top: 30),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Column(
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                _buildTimerDigit('1'),
-                _buildTimerDigit('2'),
-                _buildTimerDigit('3'),
+                _buildTimerVal('h'),
+                _buildTimerVal(':'),
+                _buildTimerVal('m'),
+                _buildTimerVal(':'),
+                _buildTimerVal('s'),
               ],
             ),
-          ),
-          Row(
+          ],
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: 30),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              _buildTimerDigit('4'),
-              _buildTimerDigit('5'),
-              _buildTimerDigit('6'),
+              _buildTimerDigit('1'),
+              _buildTimerDigit('2'),
+              _buildTimerDigit('3'),
             ],
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              _buildTimerDigit('7'),
-              _buildTimerDigit('8'),
-              _buildTimerDigit('9'),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: <Widget>[
-              _buildTimerDigit('0'),
-              MaterialButton(
-                height: _digitButtonHeight,
-                // highlightColor: Colors.transparent,
-                // splashColor: Colors.transparent,
-                child: Icon(Icons.backspace, color: Colors.blueGrey[100]),
-                onPressed: () {
-                  int val = widget._values[_toEdit]['val'];
-                  int count = widget._values[_toEdit]['count'];
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            _buildTimerDigit('4'),
+            _buildTimerDigit('5'),
+            _buildTimerDigit('6'),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            _buildTimerDigit('7'),
+            _buildTimerDigit('8'),
+            _buildTimerDigit('9'),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: <Widget>[
+            _buildTimerDigit('0'),
+            MaterialButton(
+              height: _digitButtonHeight,
+              // highlightColor: Colors.transparent,
+              // splashColor: Colors.transparent,
+              child: Icon(Icons.backspace, color: Colors.blueGrey[100]),
+              onPressed: () {
+                int val = widget._values[_toEdit]['val'];
+                int count = widget._values[_toEdit]['count'];
 
-                  if (count == 0) return;
+                if (count == 0) return;
 
-                  int newVal = count == 0 ? 0 : (val / 10).truncate();
+                int newVal = count == 0 ? 0 : (val / 10).truncate();
 
-                  widget._values[_toEdit]['count'] -= 1;
+                widget._values[_toEdit]['count'] -= 1;
 
-                  setState(() {
-                    widget._values[_toEdit]['val'] = newVal;
-                  });
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
+                setState(() {
+                  widget._values[_toEdit]['val'] = newVal;
+                });
+              },
+            ),
+          ],
+        ),
+      ],
     );
   }
 

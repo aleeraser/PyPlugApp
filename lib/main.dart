@@ -291,6 +291,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                     });
                   },
                   onEditingComplete: () {
+                    _persistanceService.setString('device_name', _deviceNameEditingController.text);
+
                     // close keyboard
                     FocusScope.of(context).requestFocus(new FocusNode());
 
@@ -312,6 +314,8 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                   icon: const Icon(Icons.check),
                   onPressed: _deviceNameEditingController.text.length > 0
                       ? () {
+                          _persistanceService.setString('device_name', _deviceNameEditingController.text);
+
                           // close keyboard
                           FocusScope.of(context).requestFocus(new FocusNode());
 

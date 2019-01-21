@@ -69,16 +69,39 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   Color _dynamicColor;
 
   SocketHandler _sh = SocketHandler.getInstance();
-  Timer _timer;
+  Timer _updateStatusTimer;
+
+  Timer _countdownTimer;
   int __timerSeconds = 0;
   get _timerSeconds => __timerSeconds;
   set _timerSeconds(int seconds) {
-    if (seconds > 0 && seconds != __timerSeconds)
+    if (seconds < 0) {
+      return;
+    }
+
+    if (_countdownTimer != null) {
+      _countdownTimer.cancel();
+    }
+
+    if (seconds == 0) {
+      setState(() {
+        __timerSeconds = 0;
+      });
+      return;
+    }
+
     __timerSeconds = seconds;
 
-    // TODO: funzione che mostra il countdown dei secondi
-    // TODO: all'avvio controlla se c'e' un timer attivo
-    // TODO: possibilita' di cancellare un timer attivo
+    _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (_timerSeconds <= 0) {
+        _countdownTimer.cancel();
+        return;
+      }
+
+      setState(() {
+        __timerSeconds -= 1;
+      });
+    });
   }
 
   int _updateInterval = _persistanceService.getString('refresh_interval') != null ? int.parse(_persistanceService.getString('refresh_interval')) : 10;
@@ -152,14 +175,14 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   }
 
   void _rescheduleUpdateTimer(Duration duration) {
-    if (_timer != null) {
-      _timer.cancel();
+    if (_updateStatusTimer != null) {
+      _updateStatusTimer.cancel();
       if (duration == Duration.zero) {
         return;
       }
     }
 
-    _timer = Timer.periodic(duration, (timer) {
+    _updateStatusTimer = Timer.periodic(duration, (timer) {
       if (_sh.socketIsFree) {
         // debugPrint('Update');
         _updateStatus(showMessages: false);
@@ -172,6 +195,18 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     return _editingTitle == false;
   }
 
+  Widget buildTimerCountdownLabel() {
+    int hours = Duration(seconds: _timerSeconds).inHours;
+    int minutes = Duration(seconds: _timerSeconds).inMinutes - Duration(seconds: _timerSeconds).inHours * 60;
+    int seconds = Duration(seconds: _timerSeconds - Duration(seconds: _timerSeconds).inMinutes * 60).inSeconds;
+
+    if (hours == 0 && minutes == 0 && seconds == 0) {
+      return Container();
+    } else {
+      return Text('${hours < 10 ? '0' + hours.toString() : hours}:${minutes < 10 ? '0' + minutes.toString() : minutes}:${seconds < 10 ? '0' + seconds.toString() : seconds}');
+    }
+  }
+
   @override
   void initState() {
     MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
@@ -181,6 +216,17 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
     if (_status == Status.UNKNOWN) {
       _updateStatus(onDoneCallback: () {
         debugPrint('Initial status: $_status');
+
+        _sh.send(
+            data: 'ATTIMER,GET',
+            showMessages: true,
+            priority: Priority.HIGH,
+            onDataCallback: (data) {
+              _timerSeconds = int.parse(String.fromCharCodes(data).split(',')[0]);
+            },
+            onErrorCallback: () => setState(() {
+                  _status = Status.UNKNOWN;
+                }));
       });
     }
 
@@ -411,27 +457,44 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                         content: durationPicker,
                                         actions: <Widget>[
                                           FlatButton(
-                                              child: Text(
-                                                'Cancel',
-                                                style: TextStyle(color: Colors.red[800]),
-                                              ),
+                                              child: Text('Close', style: TextStyle(color: Colors.blueGrey[200])),
                                               onPressed: () {
                                                 Navigator.of(context).pop();
                                               }),
+                                          _timerSeconds <= 0
+                                              ? null
+                                              : FlatButton(
+                                                  child: Text(
+                                                    'Delete current timer',
+                                                    style: TextStyle(color: Colors.red[800]),
+                                                  ),
+                                                  onPressed: () {
+                                                    _sh.send(
+                                                        data: 'ATTIMER,DEL',
+                                                        showMessages: true,
+                                                        priority: Priority.HIGH,
+                                                        onDoneCallback: () {
+                                                          _countdownTimer.cancel();
+                                                          _timerSeconds = 0;
+                                                          Navigator.of(context).pop();
+                                                        },
+                                                        onErrorCallback: () => setState(() {
+                                                              _status = Status.UNKNOWN;
+                                                            }));
+                                                  }),
                                           FlatButton(
-                                              child: Text(
-                                                'Set',
-                                                style: TextStyle(color: Colors.blueGrey[200]),
-                                              ),
+                                              child: Text('Set'),
                                               onPressed: () {
                                                 _sh.send(
                                                     data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_status == Status.ON ? 'ATOFF' : 'ATON'}',
                                                     showMessages: true,
                                                     priority: Priority.HIGH,
-                                                    onDoneCallback: () => setState(() {
-                                                          Navigator.of(context).pop();
-                                                          _timerSeconds = durationPicker.getSeconds();
-                                                        }),
+                                                    onDoneCallback: () {
+                                                      setState(() {
+                                                        _timerSeconds = durationPicker.getSeconds();
+                                                      });
+                                                      Navigator.of(context).pop();
+                                                    },
                                                     onErrorCallback: () => setState(() {
                                                           Navigator.of(context).pop();
                                                           _status = Status.UNKNOWN;
@@ -443,8 +506,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
                                   });
                             },
                     ),
-                    Text(
-                        '${Duration(seconds: _timerSeconds).inHours}:${Duration(seconds: _timerSeconds).inMinutes - Duration(seconds: _timerSeconds).inHours * 60}:${Duration(seconds: _timerSeconds - Duration(seconds: _timerSeconds).inMinutes * 60).inSeconds}')
+                    buildTimerCountdownLabel()
                   ],
                 ),
                 IconButton(
@@ -466,7 +528,7 @@ class _SmartSocketHomePageState extends State<SmartSocketHomePage> {
   void dispose() {
     _deviceNameFocusNode.dispose();
     _sh.destroySocket();
-    _timer.cancel();
+    _updateStatusTimer.cancel();
     super.dispose();
   }
 }

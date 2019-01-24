@@ -4,16 +4,12 @@ import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'Common.dart';
 import 'CustomImageCircularButton.dart';
 import 'DurationPicker.dart';
 import 'MessageHandler.dart';
 import 'SettingsView.dart';
 import 'SocketHandler.dart';
-
-const COLOR_ON = Color.fromARGB(255, 255, 255, 255);
-const COLOR_OFF = Color.fromARGB(255, 49, 58, 73);
-
-enum Status { ON, OFF, UNKNOWN, LOADING }
 
 SharedPreferences _persistanceService;
 
@@ -54,7 +50,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   String _statusText = 'Status unknown';
   Color _dynamicColor;
 
-  SocketHandler _sh = SocketHandler.getInstance();
+  final SocketHandler _sh = SocketHandler.getInstance();
   Timer _updateStatusTimer;
 
   Timer _countdownTimer;
@@ -92,7 +88,19 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     });
   }
 
-  int _updateInterval = _persistanceService.getString('refresh_interval') != null ? int.parse(_persistanceService.getString('refresh_interval')) : 10;
+  int __updateInterval;
+  get _updateInterval {
+    if (_persistanceService.getString('refresh_interval') != null) {
+      __updateInterval = int.parse(_persistanceService.getString('refresh_interval'));
+    } else {
+      _persistanceService.setString('refresh_interval', '10');
+      __updateInterval = DEFAULT_REFRESH_INTERVAL;
+    }
+    return __updateInterval;
+  }
+
+  set _updateInterval(int interval) => __updateInterval = interval;
+
   set updateInterval(int newInterval) {
     if (newInterval != _updateInterval) {
       _updateInterval = newInterval;
@@ -197,7 +205,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     int seconds = Duration(seconds: _timerSeconds - Duration(seconds: _timerSeconds).inMinutes * 60).inSeconds;
 
     if (hours == 0 && minutes == 0 && seconds == 0) {
-      return Container();
+      return Text('Timer');
     } else {
       return Text('${hours < 10 ? '0' + hours.toString() : hours}:${minutes < 10 ? '0' + minutes.toString() : minutes}:${seconds < 10 ? '0' + seconds.toString() : seconds}');
     }

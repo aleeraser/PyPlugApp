@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:connectivity/connectivity.dart';
 
 import 'package:flutter/material.dart';
 
 import 'MessageHandler.dart';
 
-const SOCKET_TIMEOUT = 5;
+const TCP_SOCKET_TIMEOUT = 5; // seconds
+const UDP_SOCKET_TIMEOUT = 10; // seconds
 
 enum Commands { ATON, ATOFF, ATPRINT, ATZERO, ATRESET, ATPOWER, ATREAD, ATSTATE }
 enum Priority { LOW, MID, HIGH }
@@ -29,6 +32,22 @@ class SocketHandler {
       _s = null;
     }
     socketIsFree = true;
+  }
+
+  void broadcast({String command, String url, int port}) {
+    RawDatagramSocket.bind(InternetAddress.anyIPv4, 8889).then((RawDatagramSocket udpSocket) {
+      udpSocket.broadcastEnabled = true;
+      udpSocket.listen((event) {
+        Datagram dg = udpSocket.receive();
+        if (dg != null) {
+          String data = String.fromCharCodes(dg.data);
+          if (data.startsWith('SOCKET')) {
+            debugPrint(data);
+          }
+        }
+      });
+      udpSocket.send(utf8.encode(command != null ? command : 'ATLOOKUP'), InternetAddress(url != null ? url : '192.168.1.255'), port != null ? port : 8889);
+    });
   }
 
   void sendCommand(
@@ -61,7 +80,7 @@ class SocketHandler {
       Function onDoneCallback,
       bool showMessages = true,
       Priority priority = Priority.LOW}) {
-    final _url = url != null ? url : '192.168.4.1';
+    final _url = url != null ? url : '192.168.1.8';
     final _port = port != null ? port : 8888;
 
     if (!socketIsFree && priority.index <= currentSocketPriority.index) {
@@ -74,7 +93,7 @@ class SocketHandler {
     socketIsFree = false;
     currentSocketPriority = priority;
 
-    Socket.connect(_url, _port, timeout: Duration(seconds: SOCKET_TIMEOUT))
+    Socket.connect(_url, _port, timeout: Duration(seconds: TCP_SOCKET_TIMEOUT))
         .then((Socket _newSocket) {
           _s = _newSocket;
           _s.write('$data\n');
@@ -100,7 +119,7 @@ class SocketHandler {
                 // debugPrint('$data completed');
               });
         })
-        .timeout(Duration(seconds: SOCKET_TIMEOUT))
+        .timeout(Duration(seconds: TCP_SOCKET_TIMEOUT))
         .catchError((exception) {
           destroySocket();
 

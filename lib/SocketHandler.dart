@@ -61,7 +61,6 @@ class SocketHandler {
             } catch (e) {
               port = null;
             }
-            debugPrint('addr: $addr, mac: $macAddr');
             if (onDataCallback != null) onDataCallback(addr, macAddr, port);
           }
         }

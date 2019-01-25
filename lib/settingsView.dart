@@ -54,6 +54,7 @@ class SettingsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
         key: _scaffoldKey,
+        resizeToAvoidBottomPadding: false,
         appBar: AppBar(
           title: const Text('Settings'),
           centerTitle: true,
@@ -91,6 +92,9 @@ class SettingsViewBody extends StatefulWidget {
 }
 
 class _SettingsViewBodyState extends State<SettingsViewBody> {
+  // static Key _ssidFieldKey = new GlobalKey();
+  // static Key _passwordFieldKey = new GlobalKey();
+
   String currentRefreshInterval;
 
   TextEditingController _ssidTextEditingController = new TextEditingController();
@@ -108,12 +112,14 @@ class _SettingsViewBodyState extends State<SettingsViewBody> {
       children: <Widget>[
         PreferenceHeader(text: 'Network'),
         PreferenceInputText(
+          // key: _ssidFieldKey,
           text: 'SSID',
           textEditingController: _ssidTextEditingController,
           hint: 'Enter SSID',
           preferenceKey: 'ssid',
         ),
         PreferenceInputText(
+          // key: _passwordFieldKey,
           text: 'Password',
           textEditingController: _passwordTextEditingController,
           hint: 'Enter Password',

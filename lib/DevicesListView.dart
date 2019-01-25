@@ -36,6 +36,12 @@ class _DevicesListViewState extends State<DevicesListView> {
   }
 
   @override
+  void initState() {
+    _discoverDevices();
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     _devicesList.sort((device1, device2) {
       if (device1['addr'] != null && device2['addr'] != null) {

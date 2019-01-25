@@ -321,6 +321,17 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
         ),
         centerTitle: true,
         elevation: 0.0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: canI()
+              ? () {
+                  // workaround for closing the keyboard
+                  FocusScope.of(context).requestFocus(new FocusNode());
+
+                  Navigator.of(context).pop();
+                }
+              : null,
+        ),
         actions: <Widget>[
           _editingTitle
               ? IconButton(

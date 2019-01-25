@@ -107,7 +107,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   }
 
   _DeviceDetailsViewState(this.deviceID) {
-    debugPrint('Opened details of device $deviceID: ${_persistanceHandler.getString(deviceID).toString()}');
+    debugPrint('Opened details of device \'$deviceID\': ${_persistanceHandler.getString(deviceID).toString()}');
     if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
       _persistanceHandler.setForDevice(deviceID, 'device_name', 'Socket Device');
     }

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:connectivity/connectivity.dart';
 import 'package:flutter/material.dart';
 
 import 'Common.dart';
@@ -14,25 +17,61 @@ class _DevicesListViewState extends State<DevicesListView> {
   final PersistanceHandler _persistanceHandler = PersistanceHandler();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final SocketHandler _sh = SocketHandler.getInstance();
-  final List<Map<String, String>> _devicesList = List(); //[{'addr': null, 'macAddr': null, 'port': null}];
+  final List<Map<String, String>> _devicesList = List();
 
-  void _discoverDevices() {
+  bool searching = false;
+
+  Future _discoverDevices() async {
+    setState(() {
+      searching = true;
+    });
+
     _devicesList.clear();
 
-    final Function onDataCallback = (String addr, String macAddr, String port) {
-      setState(() {
-        var device = {'addr': addr, 'macAddr': macAddr, 'port': port};
-        _devicesList.add(device);
+    var connectivityResult = await (new Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.mobile || connectivityResult == ConnectivityResult.none) {
+      showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+                title: Text('Error'),
+                content: Text('You must be connected to a WiFi network.'),
+                actions: <Widget>[
+                  FlatButton(
+                      child: Text(
+                        'Close',
+                        style: TextStyle(color: Colors.lightBlue[900]),
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      }),
+                ],
+              ));
+      setState(() {});
+    } else if (connectivityResult == ConnectivityResult.wifi) {
+      final Function onDataCallback = (String addr, String macAddr, String port) {
+        setState(() {
+          var device = {'addr': addr, 'macAddr': macAddr, 'port': port};
+          if (!_devicesList.any((element) {
+            return element['addr'] == device['addr'] && element['macAddr'] == device['macAddr'] && element['port'] == device['port'];
+          })) {
+            _devicesList.add(device);
+          }
+        });
+      };
+
+      int broadcastCounter = 0;
+      Timer.periodic(Duration(milliseconds: 200), (Timer timer) {
+        if (broadcastCounter == 5) {
+          timer.cancel();
+          setState(() {
+            searching = false;
+          });
+          return;
+        }
+        broadcastCounter += 1;
+        _sh.broadcast(onDataCallback: onDataCallback);
       });
-    };
-
-    // TODO: ripeti il broadcast 3-4 volte per ovviare alla perdita di pacchetti, e aggiungi la richiesta a 192.168.4.1
-
-    // Future.delayed(const Duration(milliseconds: 200), () {
-    //   _sh.broadcast(onDataCallback: onDataCallback);
-    // });
-
-    _sh.broadcast(onDataCallback: onDataCallback);
+    }
   }
 
   @override
@@ -64,103 +103,165 @@ class _DevicesListViewState extends State<DevicesListView> {
           IconButton(
             icon: const Icon(Icons.refresh),
             color: COLOR_ON,
-            onPressed: () => _discoverDevices(),
+            onPressed: searching ? null : () => _discoverDevices(),
           ),
         ],
         title: const Text('Devices'),
         centerTitle: true,
       ),
-      body: Center(
-        child: _devicesList.length == 0
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  const Text(
-                    'No device found.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(),
-                    textScaleFactor: 1.2,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 20.0),
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 1 / 3,
-                      height: 45,
-                      child: MaterialButton(
-                        color: COLOR_OFF,
-                        textColor: COLOR_ON,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: <Widget>[
-                            const Text(
-                              'Try again',
-                              textScaleFactor: 1.2,
+      body: Stack(
+        children: <Widget>[
+          searching ? ModalBarrier(dismissible: false, color: Colors.grey[400]) : Container(),
+          searching
+              ? Center(
+                  child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(COLOR_OFF)),
+                )
+              : Container(),
+          Center(
+            child: _devicesList.length == 0
+                ? searching
+                    ? Container()
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: <Widget>[
+                          const Text(
+                            'No device found.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(),
+                            textScaleFactor: 1.2,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 20.0),
+                            child: Container(
+                              width: MediaQuery.of(context).size.width * 1 / 3,
+                              height: 45,
+                              child: MaterialButton(
+                                color: COLOR_OFF,
+                                textColor: COLOR_ON,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  children: <Widget>[
+                                    const Text(
+                                      'Try again',
+                                      textScaleFactor: 1.2,
+                                    ),
+                                    const Icon(Icons.refresh),
+                                  ],
+                                ),
+                                onPressed: () => _discoverDevices(),
+                              ),
                             ),
-                            const Icon(Icons.refresh),
-                          ],
+                          )
+                        ],
+                      )
+                : ListView.builder(
+                    itemCount: _devicesList.length * 2,
+                    itemBuilder: (context, i) {
+                      if ((i).isOdd) return Divider();
+
+                      final String deviceID = _devicesList[(i / 2).truncate()]['macAddr'];
+                      final String addr = _devicesList[(i / 2).truncate()]['addr'];
+                      final String port = _devicesList[(i / 2).truncate()]['port'];
+
+                      bool isNew = false;
+
+                      String title = 'Unsupported device';
+                      String subtitle = 'Missing address and/or port';
+                      TextStyle style = TextStyle(color: Colors.grey);
+                      Function onTap;
+
+                      if (deviceID != null && addr != null && port != null) {
+                        if (_persistanceHandler.get(deviceID) == null) {
+                          debugPrint('New device \'$deviceID\' with address: $addr, port: $port ');
+                        } else {
+                          String prevAddr = _persistanceHandler.getFromDevice(deviceID, 'address');
+                          int prevPort = int.parse(_persistanceHandler.getFromDevice(deviceID, 'port'));
+
+                          debugPrint('prevAddr: $prevAddr, prevPort: $prevPort');
+                          debugPrint('addr: $addr, port: $port');
+
+                          // if (prevAddr != addr) {
+                          //   _sh.send(
+                          //       address: addr,
+                          //       port: int.parse(port),
+                          //       data: 'ATALL',
+                          //       showMessages: false,
+                          //       priority: Priority.HIGH,
+                          //       onDataCallback: (data) {
+                          //         debugPrint('data on $addr:$port');
+                          //       },
+                          //       onDoneCallback: () {
+                          //         debugPrint('done on $addr:$port');
+                          //       },
+                          //       onErrorCallback: () {
+                          //         debugPrint('error on $addr:$port');
+                          //         _sh.send(
+                          //             address: prevAddr,
+                          //             port: prevPort,
+                          //             data: 'ATALL',
+                          //             showMessages: false,
+                          //             priority: Priority.HIGH,
+                          //             onDataCallback: (data) {
+                          //               debugPrint('data on $addr:$port');
+                          //             },
+                          //             onDoneCallback: () {
+                          //               debugPrint('done on $addr:$port');
+                          //             },
+                          //             onErrorCallback: () {
+                          //               debugPrint('error on $addr:$port');
+                          //             });
+                          //       });
+                          // }
+                        }
+
+                        _persistanceHandler.setForDevice(deviceID, 'address', addr);
+                        _persistanceHandler.setForDevice(deviceID, 'port', port);
+
+                        if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
+                          isNew = true;
+                          title = 'Socket Device';
+                        } else {
+                          title = _persistanceHandler.getFromDevice(deviceID, 'device_name');
+                        }
+
+                        subtitle = 'Network address: $addr:$port';
+                        style = null;
+                        onTap = () {
+                          Navigator.of(context)
+                              .push(MaterialPageRoute(
+                                  builder: (BuildContext context) => DeviceDetailsView(
+                                        deviceID: deviceID,
+                                      )))
+                              .whenComplete(() => _discoverDevices());
+                        };
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 20, top: 5, bottom: 5),
+                        child: ListTile(
+                          title: Text(
+                            title,
+                            style: style,
+                          ),
+                          subtitle: Text(
+                            subtitle,
+                            style: style,
+                          ),
+                          onTap: onTap,
+                          trailing: isNew
+                              ? Icon(
+                                  Icons.new_releases,
+                                  color: Colors.green[600],
+                                )
+                              : null,
                         ),
-                        onPressed: () => _discoverDevices(),
-                      ),
-                    ),
-                  )
-                ],
-              )
-            : ListView.builder(
-                itemCount: _devicesList.length * 2,
-                itemBuilder: (context, i) {
-                  if ((i).isOdd) return Divider();
-
-                  final String deviceID = _devicesList[(i / 2).truncate()]['macAddr'];
-                  final String addr = _devicesList[(i / 2).truncate()]['addr'];
-                  final String port = _devicesList[(i / 2).truncate()]['port'];
-
-                  bool isNew = false;
-
-                  Widget title = Text('Unknown device');
-                  Widget subtitle = Text('Missing address and/or port');
-                  Function onTap;
-
-                  if (deviceID != null && addr != null && port != null) {
-                    if (_persistanceHandler.get(deviceID) == null) {
-                      debugPrint('New device \'$deviceID\' with address: $addr, port: $port ');
-                    }
-
-                    _persistanceHandler.setForDevice(deviceID, 'address', addr);
-                    _persistanceHandler.setForDevice(deviceID, 'port', port);
-
-                    if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
-                      isNew = true;
-                    }
-
-                    title = Text(_persistanceHandler.getFromDevice(deviceID, 'device_name') != null ? _persistanceHandler.getFromDevice(deviceID, 'device_name') : 'Socket Device');
-                    subtitle = Text('Network address: $addr:$port');
-                    onTap = () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                          builder: (BuildContext context) => DeviceDetailsView(
-                                deviceID: deviceID,
-                              )));
-                    };
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 20, top: 5, bottom: 5),
-                    child: ListTile(
-                      title: title,
-                      subtitle: subtitle,
-                      onTap: onTap,
-                      trailing: isNew
-                          ? Icon(
-                              Icons.new_releases,
-                              color: Colors.green[600],
-                            )
-                          : null,
-                    ),
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+          )
+        ],
       ),
-      // backgroundColor: COLOR_ON,
     );
   }
 }

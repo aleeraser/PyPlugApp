@@ -42,6 +42,9 @@ class _DevicesListViewState extends State<DevicesListView> {
                         style: TextStyle(color: Colors.lightBlue[900]),
                       ),
                       onPressed: () {
+                        setState(() {
+                          searching = false;
+                        });
                         Navigator.of(context).pop();
                       }),
                 ],

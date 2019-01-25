@@ -108,6 +108,9 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
   _DeviceDetailsViewState(this.deviceID) {
     debugPrint('Opened details of device $deviceID: ${_persistanceHandler.getString(deviceID).toString()}');
+    if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
+      _persistanceHandler.setForDevice(deviceID, 'device_name', 'Socket Device');
+    }
     _deviceNameEditingController = TextEditingController(text: _persistanceHandler.getFromDevice(deviceID, 'device_name'));
     _deviceAddress = _persistanceHandler.getFromDevice(deviceID, 'address');
     _devicePort = int.parse(_persistanceHandler.getFromDevice(deviceID, 'port'));

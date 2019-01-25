@@ -18,16 +18,33 @@ class _DevicesListViewState extends State<DevicesListView> {
 
   void _discoverDevices() {
     _devicesList.clear();
-    _sh.broadcast(onDataCallback: (String addr, String macAddr, String port) {
+
+    final Function onDataCallback = (String addr, String macAddr, String port) {
       setState(() {
         var device = {'addr': addr, 'macAddr': macAddr, 'port': port};
         _devicesList.add(device);
       });
-    });
+    };
+
+    // TODO: ripeti il broadcast 3-4 volte per ovviare alla perdita di pacchetti, e aggiungi la richiesta a 192.168.4.1
+
+    // Future.delayed(const Duration(milliseconds: 200), () {
+    //   _sh.broadcast(onDataCallback: onDataCallback);
+    // });
+
+    _sh.broadcast(onDataCallback: onDataCallback);
   }
 
   @override
   Widget build(BuildContext context) {
+    _devicesList.sort((device1, device2) {
+      if (device1['addr'] != null && device2['addr'] != null) {
+        // order based on last 8 byte of ip address
+        return int.parse(device1['addr'].split('.')[3]).compareTo(int.parse(device2['addr'].split('.')[3]));
+      }
+      return 0;
+    });
+
     return Scaffold(
       key: _scaffoldKey,
       resizeToAvoidBottomPadding: false,
@@ -92,19 +109,25 @@ class _DevicesListViewState extends State<DevicesListView> {
                   final String addr = _devicesList[(i / 2).truncate()]['addr'];
                   final String port = _devicesList[(i / 2).truncate()]['port'];
 
+                  bool isNew = false;
+
                   Widget title = Text('Unknown device');
                   Widget subtitle = Text('Missing address and/or port');
                   Function onTap;
 
                   if (deviceID != null && addr != null && port != null) {
                     if (_persistanceHandler.get(deviceID) == null) {
-                      debugPrint('Inserting device \'$deviceID\' with address: $addr, port: $port ');
-                      _persistanceHandler.setForDevice(deviceID, 'device_name', 'Socket Device');
+                      debugPrint('New device \'$deviceID\' with address: $addr, port: $port ');
                     }
+
                     _persistanceHandler.setForDevice(deviceID, 'address', addr);
                     _persistanceHandler.setForDevice(deviceID, 'port', port);
 
-                    title = Text(_persistanceHandler.getFromDevice(deviceID, 'device_name'));
+                    if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
+                      isNew = true;
+                    }
+
+                    title = Text(_persistanceHandler.getFromDevice(deviceID, 'device_name') != null ? _persistanceHandler.getFromDevice(deviceID, 'device_name') : 'Socket Device');
                     subtitle = Text('Network address: $addr:$port');
                     onTap = () {
                       Navigator.of(context).push(MaterialPageRoute(
@@ -120,6 +143,12 @@ class _DevicesListViewState extends State<DevicesListView> {
                       title: title,
                       subtitle: subtitle,
                       onTap: onTap,
+                      trailing: isNew
+                          ? Icon(
+                              Icons.new_releases,
+                              color: Colors.green[600],
+                            )
+                          : null,
                     ),
                   );
                 },

@@ -83,7 +83,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
     __timerSeconds = seconds;
 
-    _countdownTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timerSeconds <= 0) {
         _countdownTimer.cancel();
         _timerCommand = null;
@@ -97,31 +97,28 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   }
 
   int __updateInterval;
-  get _updateInterval {
-    String _refresh_interval = _persistanceHandler.getFromDevice(deviceID, 'refresh_interval');
-    if (_refresh_interval != null) {
-      __updateInterval = int.parse(_refresh_interval);
-    } else {
-      _persistanceHandler.setForDevice(deviceID, 'refresh_interval', '10');
-      __updateInterval = DEFAULT_REFRESH_INTERVAL;
-    }
-    return __updateInterval;
-  }
-
+  get _updateInterval => __updateInterval;
   set _updateInterval(int newInterval) {
     if (newInterval != _updateInterval) {
       __updateInterval = newInterval;
       _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
-      debugPrint(_updateInterval > 0 ? 'Rescheduled periodic update routine every ${_updateInterval}s' : 'Periodic update routine canceled');
+      debugPrint(_updateInterval > 0 ? '(Re)scheduled periodic update routine every ${_updateInterval}s' : 'Periodic update routine canceled');
     }
   }
 
   _DeviceDetailsViewState(this.deviceID) {
-    debugPrint('Opened details of device $deviceID');
-    debugPrint('persistance: ${_persistanceHandler.getString(deviceID).toString()}');
+    debugPrint('Opened details of device $deviceID: ${_persistanceHandler.getString(deviceID).toString()}');
     _deviceNameEditingController = TextEditingController(text: _persistanceHandler.getFromDevice(deviceID, 'device_name'));
     _deviceAddress = _persistanceHandler.getFromDevice(deviceID, 'address');
     _devicePort = int.parse(_persistanceHandler.getFromDevice(deviceID, 'port'));
+
+    String _refreshInterval = _persistanceHandler.getFromDevice(deviceID, 'refresh_interval');
+    if (_refreshInterval != null) {
+      _updateInterval = int.parse(_refreshInterval);
+    } else {
+      _persistanceHandler.setForDevice(deviceID, 'refresh_interval', '10');
+      _updateInterval = DEFAULT_REFRESH_INTERVAL;
+    }
   }
 
   void _navigateToSettings() {
@@ -135,11 +132,11 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     });
   }
 
-  void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW}) {
+  void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW, bool delayNext = true}) {
     // schedule next _updateStatus (if _updateInterval > 0). If _updateStatus was called
     // from outside the polling routine, this also delays the next status update in order
     // to avoid unnecessary repeated requests.
-    _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
+    if (delayNext) _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
 
     if (showLoading) {
       setState(() {
@@ -169,7 +166,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
             _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
             _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
 
-            debugPrint(sData.toString());
+            // debugPrint(sData.toString());
           } catch (e) {
             setState(() {
               _status = Status.UNKNOWN;
@@ -210,8 +207,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
     _updateStatusTimer = Timer.periodic(duration, (timer) {
       if (_sh.socketIsFree) {
-        // debugPrint('Update');
-        _updateStatus(showMessages: false);
+        _updateStatus(showMessages: false, delayNext: false);
       }
     });
   }
@@ -244,8 +240,6 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
         debugPrint('Initial status: $_status');
       });
     }
-
-    _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
 
     super.initState();
   }

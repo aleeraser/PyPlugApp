@@ -156,19 +156,25 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
         priority: priority,
         onDataCallback: (data) {
           final List<String> sData = String.fromCharCodes(data).split(',');
-          _status = sData[0] == '1' ? Status.ON : Status.OFF;
-          _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
+          try {
+            _status = sData[0] == '1' ? Status.ON : Status.OFF;
+            _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
 
-          _current = sData[1];
-          _power = sData[2];
+            _current = sData[1];
+            _power = sData[2];
 
-          _timerSeconds = int.parse(sData[3]);
-          if (_timerSeconds >= 0) _timerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
+            _timerSeconds = int.parse(sData[3]);
+            if (_timerSeconds >= 0) _timerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
 
-          _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
-          _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
+            _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
+            _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
 
-          debugPrint(sData.toString());
+            debugPrint(sData.toString());
+          } catch (e) {
+            setState(() {
+              _status = Status.UNKNOWN;
+            });
+          }
         },
         onDoneCallback: () => setState(() {
               if (onDoneCallback != null) onDoneCallback();

@@ -65,7 +65,7 @@ class SocketHandler {
           }
         }
       });
-      udpSocket.send(utf8.encode(command != null ? command : 'ATLOOKUP'), InternetAddress(url != null ? url : '192.168.1.255'), port != null ? port : 8889);
+      udpSocket.send(utf8.encode(command != null ? command : 'ATLOOKUP'), InternetAddress(url != null ? url : '255.255.255.255'), port != null ? port : 8889);
     });
   }
 

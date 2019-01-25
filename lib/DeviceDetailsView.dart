@@ -2,31 +2,39 @@ import 'dart:async';
 
 import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'Common.dart';
 import 'CustomImageCircularButton.dart';
 import 'DurationPicker.dart';
 import 'MessageHandler.dart';
+import 'PersistanceHandler.dart';
 import 'SettingsView.dart';
 import 'SocketHandler.dart';
 
-SharedPreferences _persistanceService;
-
 class DeviceDetailsView extends StatefulWidget {
-  DeviceDetailsView(SharedPreferences persistanceService) {
-    _persistanceService = persistanceService;
+  final String deviceID;
+  DeviceDetailsView({this.deviceID}) {
+    final PersistanceHandler persistanceHandler = PersistanceHandler.getHandler();
+
+    if (persistanceHandler.get(deviceID) == null) {
+      persistanceHandler.setString(deviceID, '{}');
+    }
   }
 
   @override
-  _DeviceDetailsViewState createState() => _DeviceDetailsViewState();
+  _DeviceDetailsViewState createState() => _DeviceDetailsViewState(deviceID);
 }
 
 class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final TextEditingController _deviceNameEditingController =
-      TextEditingController(text: _persistanceService.getString('device_name') != null ? _persistanceService.getString('device_name') : 'device_name');
+  final PersistanceHandler _persistanceHandler = PersistanceHandler.getHandler();
+
+  final String deviceID;
+  String _deviceAddress;
+  int _devicePort;
+
+  TextEditingController _deviceNameEditingController;
   bool _editingTitle = false;
   FocusNode _deviceNameFocusNode;
 
@@ -90,43 +98,47 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
   int __updateInterval;
   get _updateInterval {
-    if (_persistanceService.getString('refresh_interval') != null) {
-      __updateInterval = int.parse(_persistanceService.getString('refresh_interval'));
+    String _refresh_interval = _persistanceHandler.getFromDevice(deviceID, 'refresh_interval');
+    if (_refresh_interval != null) {
+      __updateInterval = int.parse(_refresh_interval);
     } else {
-      _persistanceService.setString('refresh_interval', '10');
+      _persistanceHandler.setForDevice(deviceID, 'refresh_interval', '10');
       __updateInterval = DEFAULT_REFRESH_INTERVAL;
     }
     return __updateInterval;
   }
 
-  set _updateInterval(int interval) => __updateInterval = interval;
-
-  set updateInterval(int newInterval) {
+  set _updateInterval(int newInterval) {
     if (newInterval != _updateInterval) {
-      _updateInterval = newInterval;
+      __updateInterval = newInterval;
       _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
       debugPrint(_updateInterval > 0 ? 'Rescheduled periodic update routine every ${_updateInterval}s' : 'Periodic update routine canceled');
     }
   }
 
-  void _navigateToSettings() {
-    final Map<Object, Object> prevPrefValues = Map.fromIterable(_persistanceService.getKeys(), key: (key) => key, value: (key) => _persistanceService.get(key));
+  _DeviceDetailsViewState(this.deviceID) {
+    debugPrint('Opened details of device $deviceID');
+    debugPrint('persistance: ${_persistanceHandler.getString(deviceID).toString()}');
+    _deviceNameEditingController = TextEditingController(text: _persistanceHandler.getFromDevice(deviceID, 'device_name'));
+    _deviceAddress = _persistanceHandler.getFromDevice(deviceID, 'address');
+    _devicePort = int.parse(_persistanceHandler.getFromDevice(deviceID, 'port'));
+  }
 
-    Navigator.of(context)
-        .push(MaterialPageRoute(
-            builder: (BuildContext context) => SettingsView(
-                  prevPrefValues: prevPrefValues,
-                  persistanceService: _persistanceService,
-                )))
-        .then((returnedValue) {
+  void _navigateToSettings() {
+    final Map<Object, Object> prevPrefValues =
+        Map.fromIterable(_persistanceHandler.getDevice(deviceID).keys, key: (key) => key, value: (key) => _persistanceHandler.getFromDevice(deviceID, key));
+
+    Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) => SettingsView(deviceID: deviceID, prevPrefValues: prevPrefValues))).then((returnedValue) {
       MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
 
-      updateInterval = int.parse(_persistanceService.get('refresh_interval'));
+      _updateInterval = int.parse(_persistanceHandler.getFromDevice(deviceID, 'refresh_interval'));
     });
   }
 
   void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW}) {
-    // if called updateStatus cancel current timer and re-schedule it later
+    // schedule next _updateStatus (if _updateInterval > 0). If _updateStatus was called
+    // from outside the polling routine, this also delays the next status update in order
+    // to avoid unnecessary repeated requests.
     _rescheduleUpdateTimer(Duration(seconds: _updateInterval));
 
     if (showLoading) {
@@ -137,6 +149,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     }
 
     _sh.send(
+        address: _deviceAddress,
+        port: _devicePort,
         data: 'ATALL',
         showMessages: showMessages,
         priority: priority,
@@ -151,8 +165,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
           _timerSeconds = int.parse(sData[3]);
           if (_timerSeconds >= 0) _timerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
 
-          _persistanceService.setString('ssid', sData[5]);
-          _persistanceService.setString('password', sData[6]);
+          _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
+          _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
 
           debugPrint(sData.toString());
         },
@@ -166,6 +180,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
   void _resetPowerStat({Function onDoneCallback}) {
     _sh.sendCommand(
+        address: _deviceAddress,
+        port: _devicePort,
         command: Commands.ATZERO,
         priority: Priority.HIGH,
         showMessages: true,
@@ -276,16 +292,16 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                       hintText: 'Enter device name', hintStyle: Theme.of(context).textTheme.title.merge(TextStyle(fontWeight: FontWeight.normal, color: Colors.grey))),
                   onSubmitted: (val) {
                     if (val == '') {
-                      _deviceNameEditingController.text = _persistanceService.getString('device_name');
+                      _deviceNameEditingController.text = _persistanceHandler.getFromDevice(deviceID, 'device_name');
                     } else {
-                      _persistanceService.setString('device_name', val);
+                      _persistanceHandler.setForDevice(deviceID, 'device_name', val);
                     }
                     setState(() {
                       _editingTitle = false;
                     });
                   },
                   onEditingComplete: () {
-                    _persistanceService.setString('device_name', _deviceNameEditingController.text);
+                    _persistanceHandler.setForDevice(deviceID, 'device_name', _deviceNameEditingController.text);
 
                     // close keyboard
                     FocusScope.of(context).requestFocus(new FocusNode());
@@ -308,7 +324,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                   icon: const Icon(Icons.check),
                   onPressed: _deviceNameEditingController.text.length > 0
                       ? () {
-                          _persistanceService.setString('device_name', _deviceNameEditingController.text);
+                          _persistanceHandler.setForDevice(deviceID, 'device_name', _deviceNameEditingController.text);
 
                           // close keyboard
                           FocusScope.of(context).requestFocus(new FocusNode());
@@ -348,6 +364,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                             const String switchAudioPath = 'sounds/switch.mp3';
 
                             _sh.sendCommand(
+                                address: _deviceAddress,
+                                port: _devicePort,
                                 command: switchButtonCommand,
                                 priority: Priority.HIGH,
                                 onDoneCallback: () {
@@ -477,6 +495,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                                   ),
                                                   onPressed: () {
                                                     _sh.send(
+                                                        address: _deviceAddress,
+                                                        port: _devicePort,
                                                         data: 'ATTIMER,DEL',
                                                         showMessages: true,
                                                         priority: Priority.HIGH,
@@ -494,6 +514,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                               child: Text('Set'),
                                               onPressed: () {
                                                 _sh.send(
+                                                    address: _deviceAddress,
+                                                    port: _devicePort,
                                                     data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_timerCommand.toString().split('.')[1]}',
                                                     showMessages: true,
                                                     priority: Priority.HIGH,

@@ -1,88 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'MessageHandler.dart';
+import 'PersistanceHandler.dart';
 import 'SocketHandler.dart';
 
 final Map<String, Object> preferences = Map();
 
 class SettingsView extends StatelessWidget {
   final Map<Object, Object> prevPrefValues;
-  final SharedPreferences persistanceService;
+  final String deviceID;
+  final PersistanceHandler _persistanceHandler = PersistanceHandler.getHandler();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  SettingsView({@required this.prevPrefValues, @required this.persistanceService}) : super() {
-    // debugPrint('[start] prevPref: $prevPrefValues');
-
+  SettingsView({@required this.prevPrefValues, @required this.deviceID}) : super() {
     MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
 
-    persistanceService.getKeys().forEach((key) {
-      var val = persistanceService.get(key);
-      if (val is String) {
-        preferences[key] = persistanceService.getString(key);
-      } else if (val is int) {
-        preferences[key] = persistanceService.getInt(key);
-      } else if (val is double) {
-        preferences[key] = persistanceService.getDouble(key);
-      } else if (val is bool) {
-        preferences[key] = persistanceService.getBool(key);
-      }
-
-      // debugPrint('[start] key: $key, val: ${preferences[key]}');
-    });
-  }
-
-  void _clearPersistance() {
-    preferences.keys.forEach((key) {
-      debugPrint('[clear] key: $key, val: ${persistanceService.get(key)}');
-
-      var val = preferences[key];
-      if (val is String) {
-        persistanceService.setString(key, null);
-        preferences.remove(key);
-      } else if (val is int) {
-        persistanceService.setInt(key, null);
-        preferences.remove(key);
-      } else if (val is double) {
-        persistanceService.setDouble(key, null);
-        preferences.remove(key);
-      } else if (val is bool) {
-        persistanceService.setBool(key, null);
-        preferences.remove(key);
-      }
-    });
-    debugPrint('[start] preferences: $preferences');
-    debugPrint('[start] persistanceService.getKeys(): ${persistanceService.getKeys()}');
+    _persistanceHandler.getDevice(deviceID).keys.forEach((key) => preferences[key] = _persistanceHandler.getFromDevice(deviceID, key));
   }
 
   void _persistData() {
-    debugPrint('[persist] prevPref: $prevPrefValues');
+    // debugPrint('[persist] prevPref: $prevPrefValues');
 
     preferences.keys.forEach((key) {
-      var val = preferences[key];
-      if (val is String) {
-        persistanceService.setString(key, preferences[key]);
-      } else if (val is int) {
-        persistanceService.setInt(key, preferences[key]);
-      } else if (val is double) {
-        persistanceService.setDouble(key, preferences[key]);
-      } else if (val is bool) {
-        persistanceService.setBool(key, preferences[key]);
-      }
+      _persistanceHandler.setForDevice(deviceID, key, preferences[key]);
 
-      debugPrint('[persist] persistanceService.get($key): ${persistanceService.get(key)}');
+      // debugPrint('[persist] persistanceService.get($key): ${_persistanceHandler.getFromDevice(deviceID, key)}');
     });
 
     // NOTE: check if you must/can do something while inside this view with the updated preferences
 
-    String ssid = persistanceService.getString('ssid');
-    String password = persistanceService.getString('password');
+    String ssid = _persistanceHandler.getFromDevice(deviceID, 'ssid');
+    String password = _persistanceHandler.getFromDevice(deviceID, 'password');
     if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
       debugPrint('Must update ssid and/or password');
       final SocketHandler _sh = SocketHandler.getInstance();
 
       _sh.send(
-          data: 'ATNET,${persistanceService.getString('ssid')},${persistanceService.getString('password')}',
+          data: 'ATNET,${_persistanceHandler.getFromDevice(deviceID, 'ssid')},${_persistanceHandler.getFromDevice(deviceID, 'password')}',
           showMessages: true,
           priority: Priority.HIGH,
           onDoneCallback: () => debugPrint('SSID and password updated.'),
@@ -93,7 +47,7 @@ class SettingsView extends StatelessWidget {
 
     // update preferences before returning
     prevPrefValues.clear();
-    prevPrefValues.addAll(Map.fromIterable(persistanceService.getKeys(), key: (key) => key, value: (key) => persistanceService.get(key)));
+    prevPrefValues.addAll(Map.fromIterable(_persistanceHandler.getDevice(deviceID).keys, key: (key) => key, value: (key) => _persistanceHandler.getFromDevice(deviceID, key)));
   }
 
   @override

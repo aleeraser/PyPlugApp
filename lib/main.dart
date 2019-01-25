@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'DeviceDetailsView.dart';
+import 'Common.dart';
+import 'DevicesListView.dart';
+import 'PersistanceHandler.dart';
 
-SharedPreferences _persistanceService;
-
-main() async {
-  _persistanceService = await SharedPreferences.getInstance();
+main() {
+  PersistanceHandler.getHandler().init();
+  // ..whenComplete(() {
+  //   debugPrint(PersistanceHandler.getHandler().getKeys().toString());
+  // });
   runApp(MyApp());
 }
 
@@ -18,7 +20,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primaryColor: COLOR_OFF,
       ),
-      home: DeviceDetailsView(_persistanceService),
+      home: DevicesListView(),
+      // home: Text('CACCA'),
     );
   }
 }

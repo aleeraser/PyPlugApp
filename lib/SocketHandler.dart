@@ -34,7 +34,7 @@ class SocketHandler {
     socketIsFree = true;
   }
 
-  void broadcast({String command, String url, int port}) {
+  void broadcast({String command, String url, int port, Function onDataCallback}) {
     RawDatagramSocket.bind(InternetAddress.anyIPv4, 8889).then((RawDatagramSocket udpSocket) {
       udpSocket.broadcastEnabled = true;
       udpSocket.listen((event) {
@@ -42,7 +42,27 @@ class SocketHandler {
         if (dg != null) {
           String data = String.fromCharCodes(dg.data);
           if (data.startsWith('SOCKET')) {
-            debugPrint(data);
+            List<String> splitData = data.split(',');
+            String addr;
+            String macAddr;
+            String port;
+            try {
+              addr = splitData[1];
+            } catch (e) {
+              addr = null;
+            }
+            try {
+              macAddr = splitData[2];
+            } catch (e) {
+              macAddr = null;
+            }
+            try {
+              port = splitData[3];
+            } catch (e) {
+              port = null;
+            }
+            debugPrint('addr: $addr, mac: $macAddr');
+            if (onDataCallback != null) onDataCallback(addr, macAddr, port);
           }
         }
       });
@@ -52,7 +72,7 @@ class SocketHandler {
 
   void sendCommand(
       {@required Commands command,
-      String url,
+      String address,
       int port,
       Function onDataCallback,
       Function onErrorCallback,
@@ -62,7 +82,7 @@ class SocketHandler {
     final _commandStr = command.toString().replaceAll('Commands.', '');
     send(
         data: _commandStr,
-        url: url,
+        address: address,
         port: port,
         onDataCallback: onDataCallback,
         onErrorCallback: onErrorCallback,
@@ -73,14 +93,14 @@ class SocketHandler {
 
   void send(
       {@required String data,
-      String url,
+      String address,
       int port,
       Function onDataCallback,
       Function onErrorCallback,
       Function onDoneCallback,
       bool showMessages = true,
       Priority priority = Priority.LOW}) {
-    final _url = url != null ? url : '192.168.1.8';
+    final _url = address != null ? address : '192.168.1.8';
     final _port = port != null ? port : 8888;
 
     if (!socketIsFree && priority.index <= currentSocketPriority.index) {

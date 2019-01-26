@@ -79,6 +79,7 @@ class _DevicesListViewState extends State<DevicesListView> {
 
   @override
   void initState() {
+    _persistanceHandler.remove('current_device');
     _discoverDevices();
     super.initState();
   }
@@ -177,45 +178,6 @@ class _DevicesListViewState extends State<DevicesListView> {
                       if (deviceID != null && addr != null && port != null) {
                         if (_persistanceHandler.get(deviceID) == null) {
                           debugPrint('New device \'$deviceID\' with address: $addr, port: $port ');
-                        } else {
-                          String prevAddr = _persistanceHandler.getFromDevice(deviceID, 'address');
-                          int prevPort = int.parse(_persistanceHandler.getFromDevice(deviceID, 'port'));
-
-                          debugPrint('prevAddr: $prevAddr, prevPort: $prevPort');
-                          debugPrint('addr: $addr, port: $port');
-
-                          // if (prevAddr != addr) {
-                          //   _sh.send(
-                          //       address: addr,
-                          //       port: int.parse(port),
-                          //       data: 'ATALL',
-                          //       showMessages: false,
-                          //       priority: Priority.HIGH,
-                          //       onDataCallback: (data) {
-                          //         debugPrint('data on $addr:$port');
-                          //       },
-                          //       onDoneCallback: () {
-                          //         debugPrint('done on $addr:$port');
-                          //       },
-                          //       onErrorCallback: () {
-                          //         debugPrint('error on $addr:$port');
-                          //         _sh.send(
-                          //             address: prevAddr,
-                          //             port: prevPort,
-                          //             data: 'ATALL',
-                          //             showMessages: false,
-                          //             priority: Priority.HIGH,
-                          //             onDataCallback: (data) {
-                          //               debugPrint('data on $addr:$port');
-                          //             },
-                          //             onDoneCallback: () {
-                          //               debugPrint('done on $addr:$port');
-                          //             },
-                          //             onErrorCallback: () {
-                          //               debugPrint('error on $addr:$port');
-                          //             });
-                          //       });
-                          // }
                         }
 
                         _persistanceHandler.setForDevice(deviceID, 'address', addr);
@@ -231,12 +193,17 @@ class _DevicesListViewState extends State<DevicesListView> {
                         subtitle = 'Network address: $addr:$port';
                         style = null;
                         onTap = () {
+                          _persistanceHandler.setString('current_device', deviceID);
+
                           Navigator.of(context)
                               .push(MaterialPageRoute(
                                   builder: (BuildContext context) => DeviceDetailsView(
                                         deviceID: deviceID,
                                       )))
-                              .whenComplete(() => _discoverDevices());
+                              .whenComplete(() {
+                            _persistanceHandler.remove('current_device');
+                            _discoverDevices();
+                          });
                         };
                       }
 

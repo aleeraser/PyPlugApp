@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:connectivity/connectivity.dart';
 
 import 'package:flutter/material.dart';
 
 import 'MessageHandler.dart';
+import 'PersistanceHandler.dart';
 
 const TCP_SOCKET_TIMEOUT = 5; // seconds
 const UDP_SOCKET_TIMEOUT = 10; // seconds
@@ -14,6 +14,7 @@ enum Priority { LOW, MID, HIGH }
 
 class SocketHandler {
   static final SocketHandler _sh = SocketHandler._internal();
+  final PersistanceHandler _persistanceHandler = PersistanceHandler.getHandler();
 
   Socket _s;
   bool socketIsFree = true;
@@ -99,8 +100,8 @@ class SocketHandler {
       Function onDoneCallback,
       bool showMessages = true,
       Priority priority = Priority.LOW}) {
-    final _url = address != null ? address : '192.168.1.8';
-    final _port = port != null ? port : 8888;
+    final _url = address != null ? address : _persistanceHandler.getFromDevice(_persistanceHandler.getString('current_device'), 'address');
+    final _port = port != null ? port : int.parse(_persistanceHandler.getFromDevice(_persistanceHandler.getString('current_device'), 'port'));
 
     if (!socketIsFree && priority.index <= currentSocketPriority.index) {
       debugPrint('Couldn\'t perform socket operation since another socket operation with equal or higher priority is still in progress.');

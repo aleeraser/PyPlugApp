@@ -6,25 +6,41 @@ import 'SocketHandler.dart';
 
 final Map<String, Object> preferences = Map();
 
-class SettingsView extends StatelessWidget {
-  final Map<Object, Object> prevPrefValues;
+class SettingsView extends StatefulWidget {
+  final String deviceID;
+  final Map<String, String> prevPrefValues;
+
+  SettingsView({@required this.prevPrefValues, @required this.deviceID}) : super();
+
+  @override
+  _SettingsViewState createState() => _SettingsViewState(prevPrefValues: prevPrefValues, deviceID: deviceID);
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  final Map<String, String> prevPrefValues;
   final String deviceID;
   final PersistanceHandler _persistanceHandler = PersistanceHandler.getHandler();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  SettingsView({@required this.prevPrefValues, @required this.deviceID}) : super() {
-    MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
+  TextEditingController _ssidTextEditingController = new TextEditingController();
+  TextEditingController _passwordTextEditingController = new TextEditingController();
 
+  _SettingsViewState({@required this.prevPrefValues, @required this.deviceID}) : super();
+
+  @override
+  void initState() {
+    MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
     _persistanceHandler.getDevice(deviceID).keys.forEach((key) => preferences[key] = _persistanceHandler.getFromDevice(deviceID, key));
+
+    _ssidTextEditingController.text = preferences['ssid'];
+    _passwordTextEditingController.text = preferences['password'];
+
+    super.initState();
   }
 
   void _persistData() {
-    // debugPrint('[persist] prevPref: $prevPrefValues');
-
     preferences.keys.forEach((key) {
       _persistanceHandler.setForDevice(deviceID, key, preferences[key]);
-
-      // debugPrint('[persist] persistanceService.get($key): ${_persistanceHandler.getFromDevice(deviceID, key)}');
     });
 
     // NOTE: check if you must/can do something while inside this view with the updated preferences
@@ -32,11 +48,12 @@ class SettingsView extends StatelessWidget {
     String ssid = _persistanceHandler.getFromDevice(deviceID, 'ssid');
     String password = _persistanceHandler.getFromDevice(deviceID, 'password');
     if (prevPrefValues['ssid'] != ssid || prevPrefValues['password'] != password) {
-      debugPrint('Must update ssid and/or password');
       final SocketHandler _sh = SocketHandler.getInstance();
 
       _sh.send(
-          data: 'ATNET,${_persistanceHandler.getFromDevice(deviceID, 'ssid')},${_persistanceHandler.getFromDevice(deviceID, 'password')}',
+          data: 'ATNET,SET,${_persistanceHandler.getFromDevice(deviceID, 'ssid')},${_persistanceHandler.getFromDevice(deviceID, 'password')}',
+          address: _persistanceHandler.getFromDevice(deviceID, 'address'),
+          port: int.parse(_persistanceHandler.getFromDevice(deviceID, 'port')),
           showMessages: true,
           priority: Priority.HIGH,
           onDoneCallback: () => debugPrint('SSID and password updated.'),
@@ -76,125 +93,92 @@ class SettingsView extends StatelessWidget {
             ),
           ],
         ),
-        body: SettingsViewBody(
-          currentRefreshInterval: preferences['refresh_interval'],
-        ));
-  }
-}
-
-class SettingsViewBody extends StatefulWidget {
-  final String currentRefreshInterval;
-
-  SettingsViewBody({this.currentRefreshInterval}) : super();
-
-  @override
-  _SettingsViewBodyState createState() => _SettingsViewBodyState(currentRefreshInterval: currentRefreshInterval);
-}
-
-class _SettingsViewBodyState extends State<SettingsViewBody> {
-  // static Key _ssidFieldKey = new GlobalKey();
-  // static Key _passwordFieldKey = new GlobalKey();
-
-  String currentRefreshInterval;
-
-  TextEditingController _ssidTextEditingController = new TextEditingController();
-  TextEditingController _passwordTextEditingController = new TextEditingController();
-
-  _SettingsViewBodyState({this.currentRefreshInterval}) : super() {
-    _ssidTextEditingController.text = preferences['ssid'];
-    _passwordTextEditingController.text = preferences['password'];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        PreferenceHeader(text: 'Network'),
-        PreferenceInputText(
-          // key: _ssidFieldKey,
-          text: 'SSID',
-          textEditingController: _ssidTextEditingController,
-          hint: 'Enter SSID',
-          preferenceKey: 'ssid',
-        ),
-        PreferenceInputText(
-          // key: _passwordFieldKey,
-          text: 'Password',
-          textEditingController: _passwordTextEditingController,
-          hint: 'Enter Password',
-          preferenceKey: 'password',
-          obscureText: true,
-        ),
-        PreferenceText(
-            textWidget: const Text(
-                'Warning: changing one of the values above will cause the device to be temporary unavailable for about 10s/20s if connected to a wireless hotspot.',
-                textScaleFactor: 1.1,
-                textAlign: TextAlign.left,
-                style: TextStyle(fontStyle: FontStyle.italic))),
-        PreferenceHeader(text: 'Others'),
-        PreferenceDropdownButton(
-          text: 'Refresh Interval',
-          preferenceKey: 'refresh_interval',
-          items: [
-            DropdownMenuItem(
-              value: '0',
-              child: const Text('Never'),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            PreferenceHeader(text: 'Network'),
+            PreferenceInputText(
+              text: 'SSID',
+              textEditingController: _ssidTextEditingController,
+              hint: 'Enter SSID',
+              preferenceKey: 'ssid',
             ),
-            DropdownMenuItem(
-              value: '5',
-              child: const Text('5 seconds'),
+            PreferenceInputText(
+              text: 'Password',
+              textEditingController: _passwordTextEditingController,
+              hint: 'Enter Password',
+              preferenceKey: 'password',
+              obscureText: true,
             ),
-            DropdownMenuItem(
-              value: '10',
-              child: const Text('10 seconds'),
+            PreferenceText(
+                textWidget: const Text(
+                    'Warning: changing one of the values above will cause the device to be temporary unavailable for about 10s/20s if connected to a wireless hotspot.',
+                    textScaleFactor: 1.1,
+                    textAlign: TextAlign.left,
+                    style: TextStyle(fontStyle: FontStyle.italic))),
+            PreferenceHeader(text: 'Others'),
+            PreferenceDropdownButton(
+              text: 'Refresh Interval',
+              preferenceKey: 'refresh_interval',
+              items: [
+                DropdownMenuItem(
+                  value: '0',
+                  child: const Text('Never'),
+                ),
+                DropdownMenuItem(
+                  value: '5',
+                  child: const Text('5 seconds'),
+                ),
+                DropdownMenuItem(
+                  value: '10',
+                  child: const Text('10 seconds'),
+                ),
+                DropdownMenuItem(
+                  value: '30',
+                  child: const Text('30 seconds'),
+                )
+              ],
+              defaultValue: preferences['refresh_interval'],
+              onChanged: (val) => setState(() {
+                    preferences['refresh_interval'] = val;
+                  }),
             ),
-            DropdownMenuItem(
-              value: '30',
-              child: const Text('30 seconds'),
+            PreferenceHeader(
+              text: 'Danger area',
+              textColor: Colors.red[700],
+            ),
+            PreferenceButton(
+              text: 'Enter (Web)REPL mode',
+              onPressed: () {
+                final SocketHandler _sh = SocketHandler.getInstance();
+
+                _sh.send(
+                    data: 'ATREPL',
+                    showMessages: true,
+                    priority: Priority.HIGH,
+                    onDoneCallback: () => debugPrint('Entered (Web)REPL mode.'),
+                    onErrorCallback: () {
+                      MessageHandler.getHandler().showError('Error');
+                    });
+              },
+            ),
+            PreferenceButton(
+              text: 'Reboot device',
+              onPressed: () {
+                final SocketHandler _sh = SocketHandler.getInstance();
+
+                _sh.send(
+                    data: 'ATREBOOT',
+                    showMessages: true,
+                    priority: Priority.HIGH,
+                    onDoneCallback: () => debugPrint('Rebooted.'),
+                    onErrorCallback: () {
+                      MessageHandler.getHandler().showError('Error');
+                    });
+              },
             )
           ],
-          currentRefreshInterval: currentRefreshInterval,
-          onChanged: (val) => setState(() {
-                currentRefreshInterval = val;
-              }),
-        ),
-        PreferenceHeader(
-          text: 'Danger area',
-          textColor: Colors.red[700],
-        ),
-        PreferenceButton(
-          text: 'Enter (Web)REPL mode',
-          onPressed: () {
-            final SocketHandler _sh = SocketHandler.getInstance();
-
-            _sh.send(
-                data: 'ATREPL',
-                showMessages: true,
-                priority: Priority.HIGH,
-                onDoneCallback: () => debugPrint('Entered (Web)REPL mode.'),
-                onErrorCallback: () {
-                  MessageHandler.getHandler().showError('Error');
-                });
-          },
-        ),
-        PreferenceButton(
-          text: 'Reboot device',
-          onPressed: () {
-            final SocketHandler _sh = SocketHandler.getInstance();
-
-            _sh.send(
-                data: 'ATREBOOT',
-                showMessages: true,
-                priority: Priority.HIGH,
-                onDoneCallback: () => debugPrint('Rebooted.'),
-                onErrorCallback: () {
-                  MessageHandler.getHandler().showError('Error');
-                });
-          },
-        )
-      ],
-    );
+        ));
   }
 }
 
@@ -226,12 +210,11 @@ class PreferenceButton extends StatelessWidget {
 }
 
 class PreferenceDropdownButton extends StatelessWidget {
-  const PreferenceDropdownButton({Key key, @required this.text, @required this.currentRefreshInterval, this.onChanged, @required this.items, @required this.preferenceKey})
-      : super(key: key);
+  const PreferenceDropdownButton({Key key, @required this.text, @required this.defaultValue, this.onChanged, @required this.items, @required this.preferenceKey}) : super(key: key);
 
   final String text;
   final String preferenceKey;
-  final String currentRefreshInterval;
+  final String defaultValue;
   final Function onChanged;
   final List<DropdownMenuItem> items;
 
@@ -258,7 +241,7 @@ class PreferenceDropdownButton extends StatelessWidget {
                 if (onChanged != null) onChanged(val);
               },
               items: items,
-              value: currentRefreshInterval,
+              value: defaultValue,
             ),
           )
         ],
@@ -299,7 +282,12 @@ class PreferenceInputText extends StatelessWidget {
               obscureText: obscureText,
               decoration: InputDecoration(border: InputBorder.none, hintText: hint),
               onChanged: (val) => preferences[preferenceKey] = val,
-              onSubmitted: (val) => preferences[preferenceKey] = val,
+              onSubmitted: (val) {
+                // close keyboard
+                FocusScope.of(context).requestFocus(new FocusNode());
+
+                preferences[preferenceKey] = val;
+              },
               onEditingComplete: () => preferences[preferenceKey] = textEditingController.text,
             ),
           )

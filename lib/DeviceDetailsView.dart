@@ -125,7 +125,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   }
 
   void _navigateToSettings() {
-    final Map<Object, Object> prevPrefValues =
+    final Map<String, String> prevPrefValues =
         Map.fromIterable(_persistanceHandler.getDevice(deviceID).keys, key: (key) => key, value: (key) => _persistanceHandler.getFromDevice(deviceID, key));
 
     Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) => SettingsView(deviceID: deviceID, prevPrefValues: prevPrefValues))).then((returnedValue) {
@@ -168,8 +168,6 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
             _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
             _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
-
-            // debugPrint(sData.toString());
           } catch (e) {
             setState(() {
               _status = Status.UNKNOWN;
@@ -325,7 +323,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
           icon: const Icon(Icons.arrow_back),
           onPressed: canI()
               ? () {
-                  // workaround for closing the keyboard
+                  // close keyboard
                   FocusScope.of(context).requestFocus(new FocusNode());
 
                   Navigator.of(context).pop();

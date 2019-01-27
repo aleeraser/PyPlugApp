@@ -110,51 +110,75 @@ class _DevicesListViewState extends State<DevicesListView> {
             color: COLOR_ON,
             onPressed: searching ? null : () => _discoverDevices(),
           ),
-          PopupMenuButton(
-            offset: Offset(0, 20),
-            icon: const Icon(Icons.menu),
-            onSelected: (val) {
-              switch (val) {
-                case CLEAR_DATA:
-                  _persistanceHandler.clear();
-                  break;
-                case INFO:
-                  showAboutDialog(
-                      context: context,
-                      applicationIcon: Image(
-                        image: AssetImage('assets/images/icon.png'),
-                        width: IconTheme.of(context).size,
-                        height: IconTheme.of(context).size,
-                      ),
-                      applicationName: 'PyPlug',
-                      applicationVersion: 'v1.0',
-                      applicationLegalese: 'Copyright @ 2018\nAlessandro Zini, Mattia Maldini');
-                  break;
-                default:
-                  throw ('Menu action \'${val.toString()}\' not implemented.');
-              }
-            },
-            itemBuilder: (context) {
-              return menuActions.map((action) {
-                return PopupMenuItem<String>(
-                  value: action,
-                  child: Text(action),
-                );
-              }).toList();
-            },
-          ),
+          searching
+              ? IconButton(
+                  // TODO: workaround to show a disabled button, find a better way
+                  icon: const Icon(Icons.menu),
+                  onPressed: null,
+                )
+              : PopupMenuButton(
+                  offset: Offset(0, 20),
+                  icon: const Icon(Icons.menu),
+                  onSelected: (val) {
+                    switch (val) {
+                      case CLEAR_DATA:
+                        showDialog(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                                  title: Text('Confirm'),
+                                  content: Text('Do you really want to clear all the data? This will erase all of your saved preferences for previously paired devices.'),
+                                  actions: <Widget>[
+                                    FlatButton(
+                                        child: Text(
+                                          'No',
+                                          style: TextStyle(color: Colors.lightBlue[900]),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        }),
+                                    FlatButton(
+                                        child: Text(
+                                          'Yes',
+                                          style: TextStyle(color: Colors.red[800]),
+                                        ),
+                                        onPressed: () {
+                                          _persistanceHandler.clear();
+                                          Navigator.of(context).pop();
+                                        }),
+                                  ],
+                                ));
+                        break;
+                      case INFO:
+                        showAboutDialog(
+                            context: context,
+                            applicationIcon: Image(
+                              image: AssetImage('assets/images/icon.png'),
+                              width: IconTheme.of(context).size,
+                              height: IconTheme.of(context).size,
+                            ),
+                            applicationName: 'PyPlug',
+                            applicationVersion: 'v1.0',
+                            applicationLegalese: 'Copyright @ 2019\nAlessandro Zini, Mattia Maldini');
+                        break;
+                      default:
+                        throw ('Menu action \'${val.toString()}\' not implemented.');
+                    }
+                  },
+                  itemBuilder: (context) {
+                    return menuActions.map((action) {
+                      return PopupMenuItem<String>(
+                        value: action,
+                        child: Text(action),
+                      );
+                    }).toList();
+                  },
+                ),
         ],
         title: const Text('Devices'),
         centerTitle: true,
       ),
       body: Stack(
         children: <Widget>[
-          searching ? ModalBarrier(dismissible: false, color: Colors.grey[400]) : Container(),
-          searching
-              ? Center(
-                  child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(COLOR_OFF)),
-                )
-              : Container(),
           Center(
             child: _devicesList.length == 0
                 ? searching
@@ -263,7 +287,21 @@ class _DevicesListViewState extends State<DevicesListView> {
                       );
                     },
                   ),
-          )
+          ),
+          searching
+              ? Opacity(
+                  child: ModalBarrier(
+                    dismissible: false,
+                    color: Colors.black,
+                  ),
+                  opacity: 0.5,
+                )
+              : Container(),
+          searching
+              ? Center(
+                  child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(COLOR_OFF)),
+                )
+              : Container()
         ],
       ),
     );

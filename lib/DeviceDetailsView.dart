@@ -62,36 +62,39 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   Timer _updateStatusTimer;
 
   Timer _countdownTimer;
-  Commands _timerCommand;
-  int __timerSeconds = 0;
-  get _timerSeconds => __timerSeconds;
-  set _timerSeconds(int seconds) {
-    if (seconds < 0) {
-      return;
-    }
-
+  Commands _countdownTimerCommand = Commands.ATOFF;
+  int __countdownTimerSeconds = -1;
+  get _countdownTimerSeconds => __countdownTimerSeconds;
+  set _countdownTimerSeconds(int seconds) {
     if (_countdownTimer != null) {
       _countdownTimer.cancel();
     }
 
-    if (seconds == 0) {
-      setState(() {
-        __timerSeconds = 0;
-      });
+    if (seconds < 0) {
+      __countdownTimerSeconds = -1;
+      _countdownTimerCommand = null;
       return;
     }
 
-    __timerSeconds = seconds;
+    __countdownTimerSeconds = seconds;
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_timerSeconds <= 0) {
+      if (_countdownTimerSeconds < 0) {
         _countdownTimer.cancel();
-        _timerCommand = null;
+        final Status targetStatus = _countdownTimerCommand == Commands.ATON ? Status.ON : Status.OFF;
+        _countdownTimerCommand = null;
+        _updateStatus(onDoneCallback: () {
+          while (_status != targetStatus) {
+            Timer.run(() {
+              Future.delayed(const Duration(seconds: 1), () => _updateStatus());
+            });
+          }
+        });
         return;
       }
 
       setState(() {
-        __timerSeconds -= 1;
+        __countdownTimerSeconds -= 1;
       });
     });
   }
@@ -163,12 +166,13 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
             _current = sData[1];
             _power = sData[2];
 
-            _timerSeconds = int.parse(sData[3]);
-            if (_timerSeconds >= 0) _timerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
+            _countdownTimerSeconds = int.parse(sData[3]);
+            if (_countdownTimerSeconds >= 0) _countdownTimerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
 
             _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
             _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
           } catch (e) {
+            debugPrint(e);
             setState(() {
               _status = Status.UNKNOWN;
             });
@@ -219,13 +223,12 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   }
 
   Widget buildTimerCountdownLabel() {
-    int hours = Duration(seconds: _timerSeconds).inHours;
-    int minutes = Duration(seconds: _timerSeconds).inMinutes - Duration(seconds: _timerSeconds).inHours * 60;
-    int seconds = Duration(seconds: _timerSeconds - Duration(seconds: _timerSeconds).inMinutes * 60).inSeconds;
-
-    if (hours == 0 && minutes == 0 && seconds == 0) {
+    if (_countdownTimerSeconds < 0) {
       return Text('Timer');
     } else {
+      int hours = Duration(seconds: _countdownTimerSeconds).inHours;
+      int minutes = Duration(seconds: _countdownTimerSeconds).inMinutes - Duration(seconds: _countdownTimerSeconds).inHours * 60;
+      int seconds = Duration(seconds: _countdownTimerSeconds - Duration(seconds: _countdownTimerSeconds).inMinutes * 60).inSeconds;
       return Text('${hours < 10 ? '0' + hours.toString() : hours}:${minutes < 10 ? '0' + minutes.toString() : minutes}:${seconds < 10 ? '0' + seconds.toString() : seconds}');
     }
   }
@@ -237,9 +240,11 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     _deviceNameFocusNode = FocusNode();
 
     if (_status == Status.UNKNOWN) {
-      _updateStatus(onDoneCallback: () {
-        debugPrint('Initial status: $_status');
-      });
+      _updateStatus(
+          showLoading: true,
+          onDoneCallback: () {
+            debugPrint('Initial status: $_status');
+          });
     }
 
     super.initState();
@@ -385,13 +390,11 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
                                   final Status _oldStatus = _status;
 
-                                  _updateStatus(
-                                      showLoading: false,
-                                      onDoneCallback: () {
-                                        if (_oldStatus == _status) {
-                                          MessageHandler.getHandler().showError('Error: inconsistent status');
-                                        }
-                                      });
+                                  _updateStatus(onDoneCallback: () {
+                                    if (_oldStatus == _status) {
+                                      MessageHandler.getHandler().showError('Error: inconsistent status');
+                                    }
+                                  });
                                 });
                           }),
                 Padding(
@@ -401,7 +404,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   color: _dynamicColor,
-                  onPressed: _status != Status.LOADING && canI() ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
+                  onPressed: _status != Status.LOADING && canI() ? () => _updateStatus(showLoading: true) : null, // if onPressed is 'null' the button will appear as disabled
                 ),
               ],
             ),
@@ -477,6 +480,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                               showDialog(
                                   context: context,
                                   builder: (_) {
+                                    _countdownTimerCommand = Commands.ATOFF;
                                     return Theme(
                                       data: Theme.of(context).copyWith(dialogBackgroundColor: COLOR_OFF, canvasColor: COLOR_OFF),
                                       child: AlertDialog(
@@ -486,9 +490,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                           children: <Widget>[
                                             durationPicker,
                                             TimerCommandDropdown(
-                                              timerCommand: _timerCommand,
-                                              status: _status,
-                                              onChanged: (val) => _timerCommand = val,
+                                              timerCommand: _countdownTimerCommand,
+                                              onChanged: (val) => _countdownTimerCommand = val,
                                             )
                                           ],
                                         ),
@@ -498,7 +501,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                               onPressed: () {
                                                 Navigator.of(context).pop();
                                               }),
-                                          _timerSeconds <= 0
+                                          _countdownTimerSeconds < 0
                                               ? null
                                               : FlatButton(
                                                   child: Text(
@@ -514,8 +517,8 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                                         priority: Priority.HIGH,
                                                         onDoneCallback: () {
                                                           _countdownTimer.cancel();
-                                                          _timerCommand = null;
-                                                          _timerSeconds = 0;
+                                                          _countdownTimerCommand = null;
+                                                          _countdownTimerSeconds = -1;
                                                           Navigator.of(context).pop();
                                                         },
                                                         onErrorCallback: () => setState(() {
@@ -528,12 +531,12 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                                 _sh.send(
                                                     address: _deviceAddress,
                                                     port: _devicePort,
-                                                    data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_timerCommand.toString().split('.')[1]}',
+                                                    data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_countdownTimerCommand.toString().split('.')[1]}',
                                                     showMessages: true,
                                                     priority: Priority.HIGH,
                                                     onDoneCallback: () {
                                                       setState(() {
-                                                        _timerSeconds = durationPicker.getSeconds();
+                                                        _countdownTimerSeconds = durationPicker.getSeconds();
                                                       });
                                                       Navigator.of(context).pop();
                                                     },
@@ -579,12 +582,10 @@ class TimerCommandDropdown extends StatefulWidget {
   TimerCommandDropdown({
     Key key,
     @required this.timerCommand,
-    @required this.status,
     @required this.onChanged,
   }) : super(key: key);
 
   final Commands timerCommand;
-  final Status status;
   final Function onChanged;
 
   @override
@@ -613,7 +614,7 @@ class TimerCommandDropdownState extends State<TimerCommandDropdown> {
               value: Commands.ATON,
             ),
           ],
-          value: timerCommand == null ? widget.status == Status.ON ? Commands.ATOFF : Commands.ATON : timerCommand,
+          value: timerCommand == null ? Commands.ATOFF : timerCommand,
           onChanged: (val) {
             if (widget.onChanged != null) widget.onChanged(val);
             setState(() {

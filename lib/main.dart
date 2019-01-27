@@ -17,7 +17,7 @@ main() {
     return Stream<LicenseEntry>.fromIterable(<LicenseEntry>[
       const LicenseEntryWithLineBreaks(<String>[
         'PyPlug'
-      ], 'Copyright @ 2019 Alessandro Zini, Mattia Maldini.\nLicensed under the GNU General Public License v3.0.\nYou may obtain a copy of the license at\n\thttps://www.gnu.org/licenses/gpl-3.0.html\n')
+      ], 'Copyright @ 2019 Alessandro Zini, Mattia Maldini.\n\nLicensed under the GNU General Public License v3.0.\n\nYou may obtain a copy of the license at\n\n\thttps://www.gnu.org/licenses/gpl-3.0.html')
     ]);
   });
 }

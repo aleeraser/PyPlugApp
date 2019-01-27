@@ -16,6 +16,7 @@ dependencies:
   audioplayers: ^0.8.0
   shared_preferences: any
   connectivity: any
+  url_launcher: ^4.2.0+1
 
   flutter:
     sdk: flutter

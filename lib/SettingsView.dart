@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'MessageHandler.dart';
 import 'PersistanceHandler.dart';
@@ -67,6 +69,14 @@ class _SettingsViewState extends State<SettingsView> {
     prevPrefValues.addAll(Map.fromIterable(_persistanceHandler.getDevice(deviceID).keys, key: (key) => key, value: (key) => _persistanceHandler.getFromDevice(deviceID, key)));
   }
 
+  void _launchURL(String url) async {
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      throw 'Could not launch $url';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,11 +121,8 @@ class _SettingsViewState extends State<SettingsView> {
               obscureText: true,
             ),
             PreferenceText(
-                textWidget: const Text(
-                    'Warning: changing one of the values above will cause the device to be temporary unavailable for about 10s/20s if connected to a wireless hotspot.',
-                    textScaleFactor: 1.1,
-                    textAlign: TextAlign.left,
-                    style: TextStyle(fontStyle: FontStyle.italic))),
+                textWidget: const Text('Warning: changing one of the values above will cause the device to be temporary unavailable for about 10s/20s.',
+                    textScaleFactor: 1.1, textAlign: TextAlign.left, style: TextStyle(fontStyle: FontStyle.italic))),
             PreferenceHeader(text: 'Others'),
             PreferenceDropdownButton(
               text: 'Refresh Interval',
@@ -144,37 +151,100 @@ class _SettingsViewState extends State<SettingsView> {
                   }),
             ),
             PreferenceHeader(
-              text: 'Danger area',
+              text: 'Danger zone',
               textColor: Colors.red[700],
             ),
             PreferenceButton(
               text: 'Enter (Web)REPL mode',
               onPressed: () {
-                final SocketHandler _sh = SocketHandler.getInstance();
+                showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                          title: Text('Confirm'),
+                          content: RichText(
+                              text: TextSpan(children: <TextSpan>[
+                            TextSpan(
+                                text: 'Do you really want to enter (Web)REPL mode? You will be unable to use the device without rebooting it.\nFor more informations, visit the ',
+                                style: TextStyle(color: Colors.black)),
+                            TextSpan(
+                              text: 'Micropython docs',
+                              style: TextStyle(color: Colors.blue),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  _launchURL('https://docs.micropython.org/en/latest/esp8266/tutorial/repl.html');
+                                },
+                            ),
+                            TextSpan(text: '.', style: TextStyle(color: Colors.black)),
+                          ])),
+                          actions: <Widget>[
+                            FlatButton(
+                                child: Text(
+                                  'No',
+                                  style: TextStyle(color: Colors.lightBlue[900]),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                }),
+                            FlatButton(
+                                child: Text(
+                                  'Yes',
+                                  style: TextStyle(color: Colors.red[800]),
+                                ),
+                                onPressed: () {
+                                  final SocketHandler _sh = SocketHandler.getInstance();
 
-                _sh.send(
-                    data: 'ATREPL',
-                    showMessages: true,
-                    priority: Priority.HIGH,
-                    onDoneCallback: () => debugPrint('Entered (Web)REPL mode.'),
-                    onErrorCallback: () {
-                      MessageHandler.getHandler().showError('Error');
-                    });
+                                  _sh.send(
+                                      data: 'ATREPL',
+                                      showMessages: true,
+                                      priority: Priority.HIGH,
+                                      onDoneCallback: () {
+                                        debugPrint('Entered (Web)REPL mode.');
+                                        Navigator.of(context).pop();
+                                      },
+                                      onErrorCallback: () {
+                                        MessageHandler.getHandler().showError('Error');
+                                      });
+                                }),
+                          ],
+                        ));
               },
             ),
             PreferenceButton(
               text: 'Reboot device',
               onPressed: () {
-                final SocketHandler _sh = SocketHandler.getInstance();
+                showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                          title: Text('Confirm'),
+                          content: Text('Do you really want to reboot the device? Rebooting will take around 15s-20s.'),
+                          actions: <Widget>[
+                            FlatButton(
+                                child: Text(
+                                  'No',
+                                  style: TextStyle(color: Colors.lightBlue[900]),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                }),
+                            FlatButton(
+                                child: Text(
+                                  'Yes',
+                                  style: TextStyle(color: Colors.red[800]),
+                                ),
+                                onPressed: () {
+                                  final SocketHandler _sh = SocketHandler.getInstance();
 
-                _sh.send(
-                    data: 'ATREBOOT',
-                    showMessages: true,
-                    priority: Priority.HIGH,
-                    onDoneCallback: () => debugPrint('Rebooted.'),
-                    onErrorCallback: () {
-                      MessageHandler.getHandler().showError('Error');
-                    });
+                                  _sh.send(
+                                      data: 'ATREBOOT',
+                                      showMessages: true,
+                                      priority: Priority.HIGH,
+                                      onDoneCallback: () => debugPrint('Rebooted.'),
+                                      onErrorCallback: () {
+                                        MessageHandler.getHandler().showError('Error');
+                                      });
+                                }),
+                          ],
+                        ));
               },
             )
           ],

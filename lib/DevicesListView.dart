@@ -8,6 +8,9 @@ import 'DeviceDetailsView.dart';
 import 'PersistanceHandler.dart';
 import 'SocketHandler.dart';
 
+const CLEAR_DATA = 'Clear Data';
+const INFO = 'Info';
+
 class DevicesListView extends StatefulWidget {
   @override
   _DevicesListViewState createState() => _DevicesListViewState();
@@ -18,6 +21,8 @@ class _DevicesListViewState extends State<DevicesListView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final SocketHandler _sh = SocketHandler.getInstance();
   final List<Map<String, String>> _devicesList = List();
+
+  final List<String> menuActions = [CLEAR_DATA, INFO];
 
   bool searching = false;
 
@@ -100,14 +105,43 @@ class _DevicesListViewState extends State<DevicesListView> {
       appBar: AppBar(
         actions: <Widget>[
           IconButton(
-            icon: const Icon(Icons.cancel),
-            color: COLOR_ON,
-            onPressed: () => PersistanceHandler.getHandler().clear(),
-          ),
-          IconButton(
             icon: const Icon(Icons.refresh),
             color: COLOR_ON,
             onPressed: searching ? null : () => _discoverDevices(),
+          ),
+          PopupMenuButton(
+            offset: Offset(0, 20),
+            icon: const Icon(Icons.menu),
+            onSelected: (val) {
+              switch (val) {
+                case CLEAR_DATA:
+                  _persistanceHandler.clear();
+                  break;
+                case INFO:
+                  showAboutDialog(
+                    context: context,
+                    applicationIcon: Image(
+                      image: AssetImage('assets/images/icon.png'),
+                      width: IconTheme.of(context).size,
+                      height: IconTheme.of(context).size,
+                    ),
+                    applicationName: 'PyPlug',
+                    applicationVersion: 'v1.0',
+                    applicationLegalese: 'Copyright @ 2018 Alessandro Zini, Mattia Maldini'
+                  );
+                  break;
+                default:
+                  throw ('Menu action \'${val.toString()}\' not implemented.');
+              }
+            },
+            itemBuilder: (context) {
+              return menuActions.map((action) {
+                return PopupMenuItem<String>(
+                  value: action,
+                  child: Text(action),
+                );
+              }).toList();
+            },
           ),
         ],
         title: const Text('Devices'),

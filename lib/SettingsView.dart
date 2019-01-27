@@ -11,8 +11,9 @@ final Map<String, Object> preferences = Map();
 class SettingsView extends StatefulWidget {
   final String deviceID;
   final Map<String, String> prevPrefValues;
+  final Function onUpdateIntervalChange;
 
-  SettingsView({@required this.prevPrefValues, @required this.deviceID}) : super();
+  SettingsView({@required this.prevPrefValues, @required this.deviceID, @required this.onUpdateIntervalChange}) : super();
 
   @override
   _SettingsViewState createState() => _SettingsViewState(prevPrefValues: prevPrefValues, deviceID: deviceID);
@@ -23,6 +24,8 @@ class _SettingsViewState extends State<SettingsView> {
   final String deviceID;
   final PersistanceHandler _persistanceHandler = PersistanceHandler.getHandler();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  bool _saveEnabled = false;
 
   TextEditingController _ssidTextEditingController = new TextEditingController();
   TextEditingController _passwordTextEditingController = new TextEditingController();
@@ -64,6 +67,12 @@ class _SettingsViewState extends State<SettingsView> {
           });
     }
 
+    widget.onUpdateIntervalChange();
+
+    setState(() {
+      _saveEnabled = false;
+    });
+
     // update preferences before returning
     prevPrefValues.clear();
     prevPrefValues.addAll(Map.fromIterable(_persistanceHandler.getDevice(deviceID).keys, key: (key) => key, value: (key) => _persistanceHandler.getFromDevice(deviceID, key)));
@@ -91,15 +100,43 @@ class _SettingsViewState extends State<SettingsView> {
               // workaround for closing the keyboard
               FocusScope.of(context).requestFocus(new FocusNode());
 
-              _persistData();
-
-              Navigator.of(context).pop();
+              if (_saveEnabled) {
+                showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                          title: Text('Unsaved changes'),
+                          content: Text('Do you want to save your changes?'),
+                          actions: <Widget>[
+                            FlatButton(
+                                child: Text(
+                                  'No',
+                                  style: TextStyle(color: Colors.red[800]),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).pop();
+                                }),
+                            FlatButton(
+                                child: Text(
+                                  'Yes',
+                                  style: TextStyle(color: Colors.lightBlue[900]),
+                                ),
+                                onPressed: () {
+                                  _persistData();
+                                  Navigator.of(context).pop();
+                                  Navigator.of(context).pop();
+                                }),
+                          ],
+                        ));
+              } else {
+                Navigator.of(context).pop();
+              }
             },
           ),
           actions: <Widget>[
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _persistData,
+              onPressed: _saveEnabled ? _persistData : null,
             ),
           ],
         ),
@@ -112,6 +149,12 @@ class _SettingsViewState extends State<SettingsView> {
               textEditingController: _ssidTextEditingController,
               hint: 'Enter SSID',
               preferenceKey: 'ssid',
+              onChanged: (val) {
+                preferences['ssid'] = val;
+                setState(() {
+                  _saveEnabled = true;
+                });
+              },
             ),
             PreferenceInputText(
               text: 'Password',
@@ -119,6 +162,12 @@ class _SettingsViewState extends State<SettingsView> {
               hint: 'Enter Password',
               preferenceKey: 'password',
               obscureText: true,
+              onChanged: (val) {
+                preferences['password'] = val;
+                setState(() {
+                  _saveEnabled = true;
+                });
+              },
             ),
             PreferenceText(
                 textWidget: const Text('Warning: changing one of the values above will cause the device to be temporary unavailable for about 10s/20s.',
@@ -126,7 +175,6 @@ class _SettingsViewState extends State<SettingsView> {
             PreferenceHeader(text: 'Others'),
             PreferenceDropdownButton(
               text: 'Refresh Interval',
-              preferenceKey: 'refresh_interval',
               items: [
                 DropdownMenuItem(
                   value: '0',
@@ -147,7 +195,10 @@ class _SettingsViewState extends State<SettingsView> {
               ],
               defaultValue: preferences['refresh_interval'],
               onChanged: (val) => setState(() {
-                    preferences['refresh_interval'] = val;
+                    if (val != preferences['refresh_interval']) {
+                      preferences['refresh_interval'] = val;
+                      _saveEnabled = true;
+                    }
                   }),
             ),
             PreferenceHeader(
@@ -238,7 +289,10 @@ class _SettingsViewState extends State<SettingsView> {
                                       data: 'ATREBOOT',
                                       showMessages: true,
                                       priority: Priority.HIGH,
-                                      onDoneCallback: () => debugPrint('Rebooted.'),
+                                      onDoneCallback: () {
+                                        debugPrint('Rebooted.');
+                                        Navigator.of(context).pop();
+                                      },
                                       onErrorCallback: () {
                                         MessageHandler.getHandler().showError('Error');
                                       });
@@ -280,10 +334,9 @@ class PreferenceButton extends StatelessWidget {
 }
 
 class PreferenceDropdownButton extends StatelessWidget {
-  const PreferenceDropdownButton({Key key, @required this.text, @required this.defaultValue, this.onChanged, @required this.items, @required this.preferenceKey}) : super(key: key);
+  const PreferenceDropdownButton({Key key, @required this.text, @required this.defaultValue, this.onChanged, @required this.items}) : super(key: key);
 
   final String text;
-  final String preferenceKey;
   final String defaultValue;
   final Function onChanged;
   final List<DropdownMenuItem> items;
@@ -307,7 +360,6 @@ class PreferenceDropdownButton extends StatelessWidget {
             width: (MediaQuery.of(context).size.width - _horizontalPadding) * 2 / 6,
             child: DropdownButton(
               onChanged: (val) {
-                preferences[preferenceKey] = val;
                 if (onChanged != null) onChanged(val);
               },
               items: items,
@@ -321,9 +373,11 @@ class PreferenceDropdownButton extends StatelessWidget {
 }
 
 class PreferenceInputText extends StatelessWidget {
-  PreferenceInputText({Key key, @required this.text, @required this.preferenceKey, @required this.textEditingController, this.hint, this.obscureText = false}) : super(key: key);
+  PreferenceInputText({Key key, @required this.text, @required this.preferenceKey, @required this.textEditingController, this.hint, this.obscureText = false, this.onChanged})
+      : super(key: key);
 
   final TextEditingController textEditingController;
+  final Function onChanged;
   final String text;
   final String preferenceKey;
   final String hint;
@@ -351,7 +405,9 @@ class PreferenceInputText extends StatelessWidget {
               textAlign: TextAlign.end,
               obscureText: obscureText,
               decoration: InputDecoration(border: InputBorder.none, hintText: hint),
-              onChanged: (val) => preferences[preferenceKey] = val,
+              onChanged: (val) {
+                if (onChanged != null) onChanged(val);
+              },
               onSubmitted: (val) {
                 // close keyboard
                 FocusScope.of(context).requestFocus(new FocusNode());

@@ -137,10 +137,14 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     final Map<String, String> prevPrefValues =
         Map.fromIterable(_persistanceHandler.getDevice(deviceID).keys, key: (key) => key, value: (key) => _persistanceHandler.getFromDevice(deviceID, key));
 
-    Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) => SettingsView(deviceID: deviceID, prevPrefValues: prevPrefValues))).then((returnedValue) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+            builder: (BuildContext context) => SettingsView(
+                deviceID: deviceID,
+                prevPrefValues: prevPrefValues,
+                onUpdateIntervalChange: () => _updateInterval = int.parse(_persistanceHandler.getFromDevice(deviceID, 'refresh_interval')))))
+        .then((returnedValue) {
       MessageHandler.getHandler().setScaffoldKey(_scaffoldKey);
-
-      _updateInterval = int.parse(_persistanceHandler.getFromDevice(deviceID, 'refresh_interval'));
     });
   }
 

@@ -86,6 +86,7 @@ class _DevicesListViewState extends State<DevicesListView> {
   void initState() {
     _persistanceHandler.remove('current_device');
     _discoverDevices();
+
     super.initState();
   }
 
@@ -119,16 +120,15 @@ class _DevicesListViewState extends State<DevicesListView> {
                   break;
                 case INFO:
                   showAboutDialog(
-                    context: context,
-                    applicationIcon: Image(
-                      image: AssetImage('assets/images/icon.png'),
-                      width: IconTheme.of(context).size,
-                      height: IconTheme.of(context).size,
-                    ),
-                    applicationName: 'PyPlug',
-                    applicationVersion: 'v1.0',
-                    applicationLegalese: 'Copyright @ 2018 Alessandro Zini, Mattia Maldini'
-                  );
+                      context: context,
+                      applicationIcon: Image(
+                        image: AssetImage('assets/images/icon.png'),
+                        width: IconTheme.of(context).size,
+                        height: IconTheme.of(context).size,
+                      ),
+                      applicationName: 'PyPlug',
+                      applicationVersion: 'v1.0',
+                      applicationLegalese: 'Copyright @ 2018\nAlessandro Zini, Mattia Maldini');
                   break;
                 default:
                   throw ('Menu action \'${val.toString()}\' not implemented.');

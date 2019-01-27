@@ -138,7 +138,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     });
   }
 
-  void _updateStatus({Function onDoneCallback, bool showLoading = false, bool showMessages = true, Priority priority = Priority.LOW, bool delayNext = true}) {
+  void _updateStatus({Function onDoneCallback, bool showLoading = true, bool showMessages = true, Priority priority = Priority.LOW, bool delayNext = true}) {
     // schedule next _updateStatus (if _updateInterval > 0). If _updateStatus was called
     // from outside the polling routine, this also delays the next status update in order
     // to avoid unnecessary repeated requests.
@@ -212,7 +212,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
     _updateStatusTimer = Timer.periodic(duration, (timer) {
       if (_sh.socketIsFree) {
-        _updateStatus(showMessages: false, delayNext: false);
+        _updateStatus(showMessages: false, delayNext: false, showLoading: false);
       }
     });
   }
@@ -404,7 +404,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   color: _dynamicColor,
-                  onPressed: _status != Status.LOADING && canI() ? () => _updateStatus(showLoading: true) : null, // if onPressed is 'null' the button will appear as disabled
+                  onPressed: _status != Status.LOADING && canI() ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
                 ),
               ],
             ),

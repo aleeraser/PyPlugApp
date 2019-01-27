@@ -30,6 +30,9 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
 
   final PersistanceHandler _persistanceHandler = PersistanceHandler.getHandler();
 
+  final AudioCache audioPlayer = AudioCache();
+  final String switchAudioPath = 'sounds/switch.mp3';
+
   final String deviceID;
   String _deviceAddress;
   int _devicePort;
@@ -88,6 +91,9 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
             Timer.run(() {
               Future.delayed(const Duration(seconds: 1), () => _updateStatus());
             });
+          }
+          if (_status == targetStatus) {
+            audioPlayer.play(switchAudioPath);
           }
         });
         return;
@@ -179,6 +185,14 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
           }
         },
         onDoneCallback: () => setState(() {
+              if (_status == Status.LOADING) {
+                debugPrint('Warning: status was \'LOADING\'');
+                _updateStatus(onDoneCallback: () {
+                  if (_status == Status.LOADING) {
+                    _status = Status.UNKNOWN;
+                  }
+                });
+              }
               if (onDoneCallback != null) onDoneCallback();
             }),
         onErrorCallback: () => setState(() {
@@ -377,9 +391,6 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                     onTap: _status == Status.UNKNOWN || _status == Status.LOADING || !canI()
                         ? null
                         : () {
-                            final AudioCache audioPlayer = AudioCache();
-                            const String switchAudioPath = 'sounds/switch.mp3';
-
                             _sh.sendCommand(
                                 address: _deviceAddress,
                                 port: _devicePort,
@@ -395,7 +406,10 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                       MessageHandler.getHandler().showError('Error: inconsistent status');
                                     }
                                   });
-                                });
+                                },
+                                onErrorCallback: () => setState(() {
+                                      _status = Status.UNKNOWN;
+                                    }));
                           }),
                 Padding(
                   padding: const EdgeInsets.only(top: 40),

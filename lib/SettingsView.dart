@@ -104,23 +104,17 @@ class _SettingsViewState extends State<SettingsView> {
                 showDialog(
                     context: context,
                     builder: (_) => AlertDialog(
-                          title: Text('Unsaved changes'),
-                          content: Text('Do you want to save your changes?'),
+                          title: const Text('Unsaved changes'),
+                          content: const Text('Do you want to save your changes?'),
                           actions: <Widget>[
                             FlatButton(
-                                child: Text(
-                                  'No',
-                                  style: TextStyle(color: Colors.red[800]),
-                                ),
+                                child: Text('NO', style: TextStyle(color: Colors.red[800])),
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                   Navigator.of(context).pop();
                                 }),
                             FlatButton(
-                                child: Text(
-                                  'Yes',
-                                  style: TextStyle(color: Colors.lightBlue[900]),
-                                ),
+                                child: const Text('YES'),
                                 onPressed: () {
                                   _persistData();
                                   Navigator.of(context).pop();
@@ -211,11 +205,11 @@ class _SettingsViewState extends State<SettingsView> {
                 showDialog(
                     context: context,
                     builder: (_) => AlertDialog(
-                          title: Text('Confirm'),
+                          title: const Text('Confirm'),
                           content: RichText(
                               text: TextSpan(children: <TextSpan>[
                             TextSpan(
-                                text: 'Do you really want to enter (Web)REPL mode? You will be unable to use the device without rebooting it.\nFor more informations, visit the ',
+                                text: 'Do you really want to enter (Web)REPL mode? You will be unable to use the device without rebooting it.\n\nFor further informations, visit the ',
                                 style: TextStyle(color: Colors.black)),
                             TextSpan(
                               text: 'Micropython docs',
@@ -229,18 +223,12 @@ class _SettingsViewState extends State<SettingsView> {
                           ])),
                           actions: <Widget>[
                             FlatButton(
-                                child: Text(
-                                  'No',
-                                  style: TextStyle(color: Colors.lightBlue[900]),
-                                ),
+                                child: Text('NO'),
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                 }),
                             FlatButton(
-                                child: Text(
-                                  'Yes',
-                                  style: TextStyle(color: Colors.red[800]),
-                                ),
+                                child: Text('YES', style: TextStyle(color: Colors.red[800])),
                                 onPressed: () {
                                   final SocketHandler _sh = SocketHandler.getInstance();
 
@@ -270,18 +258,12 @@ class _SettingsViewState extends State<SettingsView> {
                           content: Text('Do you really want to reboot the device? Rebooting will take around 15s-20s.'),
                           actions: <Widget>[
                             FlatButton(
-                                child: Text(
-                                  'No',
-                                  style: TextStyle(color: Colors.lightBlue[900]),
-                                ),
+                                child: Text('NO'),
                                 onPressed: () {
                                   Navigator.of(context).pop();
                                 }),
                             FlatButton(
-                                child: Text(
-                                  'Yes',
-                                  style: TextStyle(color: Colors.red[800]),
-                                ),
+                                child: Text('YES', style: TextStyle(color: Colors.red[800])),
                                 onPressed: () {
                                   final SocketHandler _sh = SocketHandler.getInstance();
 

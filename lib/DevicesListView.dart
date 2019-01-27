@@ -9,7 +9,7 @@ import 'PersistanceHandler.dart';
 import 'SocketHandler.dart';
 
 const CLEAR_DATA = 'Clear Data';
-const INFO = 'Info';
+const ABOUT = 'About';
 
 class DevicesListView extends StatefulWidget {
   @override
@@ -22,7 +22,7 @@ class _DevicesListViewState extends State<DevicesListView> {
   final SocketHandler _sh = SocketHandler.getInstance();
   final List<Map<String, String>> _devicesList = List();
 
-  final List<String> menuActions = [CLEAR_DATA, INFO];
+  final List<String> menuActions = [CLEAR_DATA, ABOUT];
 
   bool searching = false;
 
@@ -148,7 +148,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                                   ],
                                 ));
                         break;
-                      case INFO:
+                      case ABOUT:
                         showAboutDialog(
                             context: context,
                             applicationIcon: Image(

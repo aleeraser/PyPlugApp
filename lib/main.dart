@@ -27,9 +27,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Smart Socket',
-      theme: ThemeData(
-        primaryColor: COLOR_OFF,
-      ),
+      theme: ThemeData(primaryColor: COLOR_OFF, accentColor: Colors.lightBlue[900]),
       home: DevicesListView(),
     );
   }

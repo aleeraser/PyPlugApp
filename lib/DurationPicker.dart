@@ -18,7 +18,7 @@ class DurationPicker extends StatefulWidget {
   }
 
   @override
-  DurationPickerState createState() => DurationPickerState();
+  DurationPickerState createState() => DurationPickerState(darkTheme: darkTheme);
 }
 
 class DurationPickerState extends State<DurationPicker> {
@@ -28,8 +28,14 @@ class DurationPickerState extends State<DurationPicker> {
 
   final _digitButtonHeight = 60.0;
 
+  bool darkTheme = false;
+  Color _dynamicColor;
+  DurationPickerState({this.darkTheme}) : super();
+
   @override
   Widget build(BuildContext context) {
+    _dynamicColor = darkTheme ? Colors.blueGrey[100] : Colors.blueGrey[700];
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -84,7 +90,7 @@ class DurationPickerState extends State<DurationPicker> {
               height: _digitButtonHeight,
               // highlightColor: Colors.transparent,
               // splashColor: Colors.transparent,
-              child: Icon(Icons.backspace, color: Colors.blueGrey[100]),
+              child: Icon(Icons.backspace, color: _dynamicColor),
               onPressed: () {
                 int val = widget._values[_toEdit]['val'];
                 int count = widget._values[_toEdit]['count'];
@@ -111,7 +117,7 @@ class DurationPickerState extends State<DurationPicker> {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: unit == ':'
-          ? <Widget>[Text(unit, textScaleFactor: 3, style: TextStyle(color: Colors.blueGrey[100])), Text('')]
+          ? <Widget>[Text(unit, textScaleFactor: 3, style: TextStyle(color: _dynamicColor)), Text('')]
           : <Widget>[
               GestureDetector(
                 onTap: () => setState(() {
@@ -121,7 +127,7 @@ class DurationPickerState extends State<DurationPicker> {
                   0 <= widget._values[unit]['val'] && widget._values[unit]['val'] < 10 ? '0${widget._values[unit]['val']}' : widget._values[unit]['val'].toString(),
                   textAlign: TextAlign.center,
                   textScaleFactor: 4,
-                  style: _toEdit == unit ? _selectedStyle : TextStyle(color: Colors.blueGrey[100]),
+                  style: _toEdit == unit ? _selectedStyle : TextStyle(color: _dynamicColor),
                 ),
               ),
               Text(unit.toUpperCase(), style: TextStyle(color: Colors.grey[700]))
@@ -134,7 +140,7 @@ class DurationPickerState extends State<DurationPicker> {
       height: _digitButtonHeight,
       // highlightColor: Colors.transparent,
       // splashColor: Colors.transparent,
-      child: Text(digit, textScaleFactor: 1.4, style: TextStyle(color: Colors.blueGrey[100])),
+      child: Text(digit, textScaleFactor: 1.4, style: TextStyle(color: _dynamicColor)),
       onPressed: () {
         int val = widget._values[_toEdit]['val'];
         int count = widget._values[_toEdit]['count'];

@@ -241,13 +241,16 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   }
 
   Widget buildTimerCountdownLabel() {
+    final TextStyle style = TextStyle(color: _status != Status.LOADING && canI() ? _dynamicColor : Theme.of(context).disabledColor);
+
     if (_countdownTimerSeconds < 0) {
-      return Text('Timer');
+      return Text('Timer', style: style);
     } else {
       int hours = Duration(seconds: _countdownTimerSeconds).inHours;
       int minutes = Duration(seconds: _countdownTimerSeconds).inMinutes - Duration(seconds: _countdownTimerSeconds).inHours * 60;
       int seconds = Duration(seconds: _countdownTimerSeconds - Duration(seconds: _countdownTimerSeconds).inMinutes * 60).inSeconds;
-      return Text('${hours < 10 ? '0' + hours.toString() : hours}:${minutes < 10 ? '0' + minutes.toString() : minutes}:${seconds < 10 ? '0' + seconds.toString() : seconds}');
+      return Text('${hours < 10 ? '0' + hours.toString() : hours}:${minutes < 10 ? '0' + minutes.toString() : minutes}:${seconds < 10 ? '0' + seconds.toString() : seconds}',
+          style: style);
     }
   }
 
@@ -274,7 +277,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     AssetImage assetImage;
     Commands switchButtonCommand;
 
-    DurationPicker durationPicker = DurationPicker(darkTheme: true);
+    DurationPicker durationPicker = DurationPicker(darkTheme: _status == Status.OFF);
 
     if (_status == Status.LOADING || _status == Status.UNKNOWN) {
       _tableBorderColor = _prevStatus == Status.ON ? Colors.grey[200] : Colors.blueGrey[800];
@@ -385,6 +388,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -419,11 +423,6 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                   padding: const EdgeInsets.only(top: 40),
                   child: Text(_statusText, style: TextStyle(color: _dynamicColor), textScaleFactor: 1.3),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  color: _dynamicColor,
-                  onPressed: _status != Status.LOADING && canI() ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
-                ),
               ],
             ),
             Column(
@@ -451,20 +450,20 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                     ? null
                                     : () => showDialog(
                                         context: context,
-                                        builder: (_) => AlertDialog(
-                                              title: Text('Reset \'Power\' value?'),
+                                        builder: (_) => Theme(
+                                            data: Theme.of(context).copyWith(
+                                                dialogBackgroundColor: _status == Status.OFF ? COLOR_OFF : COLOR_ON, canvasColor: _status == Status.OFF ? COLOR_OFF : COLOR_ON),
+                                            child: AlertDialog(
+                                              title: Text('Reset \'Power\' value?', style: TextStyle(color: _status == Status.OFF ? Colors.blueGrey[100] : Colors.blueGrey[700])),
                                               actions: <Widget>[
                                                 FlatButton(
-                                                    child: Text(
-                                                      'Back',
-                                                      style: TextStyle(color: Colors.lightBlue[900]),
-                                                    ),
+                                                    child: Text('BACK', style: _status == Status.OFF ? TextStyle(color: Colors.blueGrey[100]) : null),
                                                     onPressed: () {
                                                       Navigator.of(context).pop();
                                                     }),
                                                 FlatButton(
                                                     child: Text(
-                                                      'Reset value',
+                                                      'RESET',
                                                       style: TextStyle(color: Colors.red[800]),
                                                     ),
                                                     onPressed: () {
@@ -474,7 +473,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                                       Navigator.of(context).pop();
                                                     }),
                                               ],
-                                            )),
+                                            ))),
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: Text('Power (W)\n$_power', style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
@@ -490,94 +489,104 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
               children: <Widget>[
                 Column(
                   children: <Widget>[
-                    IconButton(
-                      icon: const Icon(Icons.timer),
-                      onPressed: _status == Status.UNKNOWN || !canI()
-                          ? null
-                          : () {
-                              showDialog(
-                                  context: context,
-                                  builder: (_) {
-                                    _countdownTimerCommand = Commands.ATOFF;
-                                    return Theme(
-                                      data: Theme.of(context).copyWith(dialogBackgroundColor: COLOR_OFF, canvasColor: COLOR_OFF),
-                                      child: AlertDialog(
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: <Widget>[
-                                            durationPicker,
-                                            TimerCommandDropdown(
-                                              timerCommand: _countdownTimerCommand,
-                                              onChanged: (val) => _countdownTimerCommand = val,
-                                            )
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: IconButton(
+                        icon: const Icon(Icons.timer),
+                        color: _dynamicColor,
+                        onPressed: _status == Status.UNKNOWN || !canI()
+                            ? null
+                            : () {
+                                showDialog(
+                                    context: context,
+                                    builder: (_) {
+                                      _countdownTimerCommand = Commands.ATOFF;
+                                      return Theme(
+                                        data: Theme.of(context).copyWith(
+                                            dialogBackgroundColor: _status == Status.OFF ? COLOR_OFF : COLOR_ON, canvasColor: _status == Status.OFF ? COLOR_OFF : COLOR_ON),
+                                        child: AlertDialog(
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: <Widget>[
+                                              durationPicker,
+                                              TimerCommandDropdown(
+                                                timerCommand: _countdownTimerCommand,
+                                                onChanged: (val) => _countdownTimerCommand = val,
+                                                darkTheme: _status == Status.OFF,
+                                              )
+                                            ],
+                                          ),
+                                          actions: <Widget>[
+                                            FlatButton(
+                                                child: Text('CLOSE', style: TextStyle(color: _status == Status.OFF ? Colors.blueGrey[100] : Colors.blueGrey[700])),
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                }),
+                                            _countdownTimerSeconds < 0
+                                                ? null
+                                                : FlatButton(
+                                                    child: Text(
+                                                      'DELETE CURRENT',
+                                                      style: TextStyle(color: Colors.red[800]),
+                                                    ),
+                                                    onPressed: () {
+                                                      _sh.send(
+                                                          address: _deviceAddress,
+                                                          port: _devicePort,
+                                                          data: 'ATTIMER,DEL',
+                                                          showMessages: true,
+                                                          priority: Priority.HIGH,
+                                                          onDoneCallback: () {
+                                                            setState(() {
+                                                              _countdownTimer.cancel();
+                                                              _countdownTimerCommand = null;
+                                                              _countdownTimerSeconds = -1;
+                                                            });
+                                                            Navigator.of(context).pop();
+                                                          },
+                                                          onErrorCallback: () => setState(() {
+                                                                _status = Status.UNKNOWN;
+                                                              }));
+                                                    }),
+                                            FlatButton(
+                                                child: Text('SET', style: TextStyle(color: Colors.teal[500])),
+                                                onPressed: () {
+                                                  _sh.send(
+                                                      address: _deviceAddress,
+                                                      port: _devicePort,
+                                                      data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_countdownTimerCommand.toString().split('.')[1]}',
+                                                      showMessages: true,
+                                                      priority: Priority.HIGH,
+                                                      onDoneCallback: () {
+                                                        setState(() {
+                                                          _countdownTimerSeconds = durationPicker.getSeconds();
+                                                        });
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      onErrorCallback: () => setState(() {
+                                                            Navigator.of(context).pop();
+                                                            _status = Status.UNKNOWN;
+                                                          }));
+                                                }),
                                           ],
                                         ),
-                                        actions: <Widget>[
-                                          FlatButton(
-                                              child: Text('Close', style: TextStyle(color: Colors.blueGrey[200])),
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              }),
-                                          _countdownTimerSeconds < 0
-                                              ? null
-                                              : FlatButton(
-                                                  child: Text(
-                                                    'Delete current timer',
-                                                    style: TextStyle(color: Colors.red[800]),
-                                                  ),
-                                                  onPressed: () {
-                                                    _sh.send(
-                                                        address: _deviceAddress,
-                                                        port: _devicePort,
-                                                        data: 'ATTIMER,DEL',
-                                                        showMessages: true,
-                                                        priority: Priority.HIGH,
-                                                        onDoneCallback: () {
-                                                          _countdownTimer.cancel();
-                                                          _countdownTimerCommand = null;
-                                                          _countdownTimerSeconds = -1;
-                                                          Navigator.of(context).pop();
-                                                        },
-                                                        onErrorCallback: () => setState(() {
-                                                              _status = Status.UNKNOWN;
-                                                            }));
-                                                  }),
-                                          FlatButton(
-                                              child: Text('Set'),
-                                              onPressed: () {
-                                                _sh.send(
-                                                    address: _deviceAddress,
-                                                    port: _devicePort,
-                                                    data: 'ATTIMER,SET,${durationPicker.getSeconds()},${_countdownTimerCommand.toString().split('.')[1]}',
-                                                    showMessages: true,
-                                                    priority: Priority.HIGH,
-                                                    onDoneCallback: () {
-                                                      setState(() {
-                                                        _countdownTimerSeconds = durationPicker.getSeconds();
-                                                      });
-                                                      Navigator.of(context).pop();
-                                                    },
-                                                    onErrorCallback: () => setState(() {
-                                                          Navigator.of(context).pop();
-                                                          _status = Status.UNKNOWN;
-                                                        }));
-                                              }),
-                                        ],
-                                      ),
-                                    );
-                                  });
-                            },
+                                      );
+                                    });
+                              },
+                      ),
                     ),
                     buildTimerCountdownLabel()
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.cancel),
-                  onPressed: () {
-                    _sh.destroySocket();
-                  },
-                )
+                Column(children: <Widget>[
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    color: _dynamicColor,
+                    onPressed: _status != Status.LOADING && canI() ? () => _updateStatus() : null, // if onPressed is 'null' the button will appear as disabled
+                  ),
+                  Text('Refresh', style: TextStyle(color: _status != Status.LOADING && canI() ? _dynamicColor : Theme.of(context).disabledColor)),
+                ]),
               ],
             ),
           ],
@@ -601,34 +610,39 @@ class TimerCommandDropdown extends StatefulWidget {
     Key key,
     @required this.timerCommand,
     @required this.onChanged,
+    this.darkTheme,
   }) : super(key: key);
 
   final Commands timerCommand;
   final Function onChanged;
+  final bool darkTheme;
 
   @override
-  State<StatefulWidget> createState() => TimerCommandDropdownState(timerCommand);
+  State<StatefulWidget> createState() => TimerCommandDropdownState(timerCommand: timerCommand, darkTheme: darkTheme);
 }
 
 class TimerCommandDropdownState extends State<TimerCommandDropdown> {
-  TimerCommandDropdownState(this.timerCommand);
+  TimerCommandDropdownState({this.timerCommand, this.darkTheme});
 
+  bool darkTheme;
   Commands timerCommand;
 
   @override
   Widget build(BuildContext context) {
+    final Color _dynamicColor = darkTheme ? Colors.blueGrey[100] : Colors.blueGrey[700];
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: <Widget>[
-        Text('Action to execute', style: TextStyle(color: Colors.blueGrey[200])),
+        Text('Action to execute', style: TextStyle(color: _dynamicColor)),
         DropdownButton<Commands>(
           items: [
             DropdownMenuItem(
-              child: Text('Turn off', style: TextStyle(color: Colors.blueGrey[200])),
+              child: Text('Turn off', style: TextStyle(color: _dynamicColor)),
               value: Commands.ATOFF,
             ),
             DropdownMenuItem(
-              child: Text('Turn on', style: TextStyle(color: Colors.blueGrey[200])),
+              child: Text('Turn on', style: TextStyle(color: _dynamicColor)),
               value: Commands.ATON,
             ),
           ],

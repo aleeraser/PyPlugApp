@@ -170,19 +170,21 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
         onDataCallback: (data) {
           final List<String> sData = String.fromCharCodes(data).split(',');
           try {
-            _status = sData[0] == '1' ? Status.ON : Status.OFF;
-            _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
+            setState(() {
+              _status = sData[0] == '1' ? Status.ON : Status.OFF;
+              _statusText = 'Socket is ${_status == Status.ON ? 'on' : 'off'}';
 
-            _current = sData[1];
-            _power = sData[2];
+              _current = sData[1];
+              _power = sData[2];
 
-            _countdownTimerSeconds = int.parse(sData[3]);
-            if (_countdownTimerSeconds >= 0) _countdownTimerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
+              _countdownTimerSeconds = int.parse(sData[3]);
+              if (_countdownTimerSeconds >= 0) _countdownTimerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
 
-            _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5] != 'None' ? sData[5] : '');
-            _persistanceHandler.setForDevice(deviceID, 'password', sData[6] != 'None' ? sData[6] : '');
+              _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5] != 'None' ? sData[5] : '');
+              _persistanceHandler.setForDevice(deviceID, 'password', sData[6] != 'None' ? sData[6] : '');
 
-            _persistanceHandler.setForDevice(deviceID, 'device_name', sData[7]);
+              _persistanceHandler.setForDevice(deviceID, 'device_name', sData[7]);
+            });
           } catch (e) {
             debugPrint(e);
             setState(() {
@@ -351,7 +353,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                   },
                 )
               : Text(
-                  _deviceNameEditingController.text,
+                  _persistanceHandler.getFromDevice(deviceID, 'device_name'),
                   textAlign: TextAlign.center,
                 ),
         ),

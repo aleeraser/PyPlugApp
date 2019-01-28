@@ -22,4 +22,4 @@ In *device management*, the application provides a visual interface for the comm
 
 An sample screenshot of the interface can be found below:
 
-<img src="/assets/images/samples/sample.png" width="200" alt="application_sample">
+<img src="/assets/images/samples/sample.png" width="350" alt="application_sample">

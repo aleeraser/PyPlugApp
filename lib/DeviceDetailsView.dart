@@ -472,7 +472,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                                             ))),
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
-                                  child: Text('Power (W)\n$_power', style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
+                                  child: Text('Power (W/h)\n$_power', style: TextStyle(color: _dynamicColor), textScaleFactor: 1.1, textAlign: TextAlign.center),
                                 ))),
                       ]),
                     ],

@@ -262,7 +262,7 @@ class _SettingsViewState extends State<SettingsView> {
                     context: context,
                     builder: (_) => AlertDialog(
                           title: Text('Confirm'),
-                          content: Text('Do you really want to reboot the device? Rebooting will take around 15s-20s.'),
+                          content: Text('Do you really want to reboot the device? Rebooting will take around 10s-20s.'),
                           actions: <Widget>[
                             FlatButton(
                                 child: Text('NO'),

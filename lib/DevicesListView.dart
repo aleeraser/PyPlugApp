@@ -253,9 +253,9 @@ class _DevicesListViewState extends State<DevicesListView> {
                           _persistanceHandler.setString('current_device', deviceID);
 
                           Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) {
-                            _persistanceHandler.setForDevice(deviceID, 'device_name', deviceName);
                             return DeviceDetailsView(
                               deviceID: deviceID,
+                              deviceName: deviceName,
                             );
                           })).whenComplete(() {
                             _persistanceHandler.remove('current_device');

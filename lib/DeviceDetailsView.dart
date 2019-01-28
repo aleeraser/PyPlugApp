@@ -13,7 +13,8 @@ import 'SocketHandler.dart';
 
 class DeviceDetailsView extends StatefulWidget {
   final String deviceID;
-  DeviceDetailsView({this.deviceID}) {
+  final String deviceName;
+  DeviceDetailsView({this.deviceID, this.deviceName}) {
     final PersistanceHandler persistanceHandler = PersistanceHandler.getHandler();
 
     if (persistanceHandler.get(deviceID) == null) {
@@ -22,7 +23,7 @@ class DeviceDetailsView extends StatefulWidget {
   }
 
   @override
-  _DeviceDetailsViewState createState() => _DeviceDetailsViewState(deviceID);
+  _DeviceDetailsViewState createState() => _DeviceDetailsViewState(deviceID, deviceName);
 }
 
 class _DeviceDetailsViewState extends State<DeviceDetailsView> {
@@ -34,6 +35,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
   final String switchAudioPath = 'sounds/switch.mp3';
 
   final String deviceID;
+  final String deviceName;
   String _deviceAddress;
   int _devicePort;
 
@@ -115,11 +117,9 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
     }
   }
 
-  _DeviceDetailsViewState(this.deviceID) {
+  _DeviceDetailsViewState(this.deviceID, this.deviceName) {
     debugPrint('Opened details of device \'$deviceID\': ${_persistanceHandler.getString(deviceID).toString()}');
-    if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
-      _persistanceHandler.setForDevice(deviceID, 'device_name', 'Socket Device');
-    }
+    _persistanceHandler.setForDevice(deviceID, 'device_name', deviceName);
     _deviceNameEditingController = TextEditingController(text: _persistanceHandler.getFromDevice(deviceID, 'device_name'));
     _deviceAddress = _persistanceHandler.getFromDevice(deviceID, 'address');
     _devicePort = int.parse(_persistanceHandler.getFromDevice(deviceID, 'port'));

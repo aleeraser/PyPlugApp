@@ -130,7 +130,13 @@ class _SettingsViewState extends State<SettingsView> {
           actions: <Widget>[
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _saveEnabled ? _persistData : null,
+              onPressed: _saveEnabled
+                  ? () {
+                      // workaround for closing the keyboard
+                      FocusScope.of(context).requestFocus(new FocusNode());
+                      _persistData();
+                    }
+                  : null,
             ),
           ],
         ),
@@ -209,7 +215,8 @@ class _SettingsViewState extends State<SettingsView> {
                           content: RichText(
                               text: TextSpan(children: <TextSpan>[
                             TextSpan(
-                                text: 'Do you really want to enter (Web)REPL mode? You will be unable to use the device without rebooting it.\n\nFor further informations, visit the ',
+                                text:
+                                    'Do you really want to enter (Web)REPL mode? You will be unable to use the device without rebooting it.\n\nFor further informations, visit the ',
                                 style: TextStyle(color: Colors.black)),
                             TextSpan(
                               text: 'Micropython docs',

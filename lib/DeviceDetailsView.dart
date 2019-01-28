@@ -179,8 +179,10 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
             _countdownTimerSeconds = int.parse(sData[3]);
             if (_countdownTimerSeconds >= 0) _countdownTimerCommand = sData[4] == 'ATON' ? Commands.ATON : Commands.ATOFF;
 
-            _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5]);
-            _persistanceHandler.setForDevice(deviceID, 'password', sData[6]);
+            _persistanceHandler.setForDevice(deviceID, 'ssid', sData[5] != 'None' ? sData[5] : '');
+            _persistanceHandler.setForDevice(deviceID, 'password', sData[6] != 'None' ? sData[6] : '');
+
+            _persistanceHandler.setForDevice(deviceID, 'device_name', sData[7]);
           } catch (e) {
             debugPrint(e);
             setState(() {
@@ -301,6 +303,32 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
       }
     });
 
+    void _updateDeviceName() {
+      setState(() {
+        _editingTitle = false;
+      });
+
+      String val = _deviceNameEditingController.text;
+
+      if (val == '') {
+        val = _persistanceHandler.getFromDevice(deviceID, 'device_name');
+        _deviceNameEditingController.text = val;
+      } else if (val != _persistanceHandler.getFromDevice(deviceID, 'device_name')) {
+        _persistanceHandler.setForDevice(deviceID, 'device_name', val);
+
+        _sh.send(
+            address: _deviceAddress,
+            port: _devicePort,
+            data: 'ATNAME,SET,$val',
+            showMessages: true,
+            priority: Priority.HIGH,
+            onDoneCallback: () {
+              FocusScope.of(context).requestFocus(new FocusNode()); // close keyboard
+            },
+            onErrorCallback: () => setState(() => _status = Status.UNKNOWN));
+      }
+    }
+
     return Scaffold(
       key: _scaffoldKey,
       resizeToAvoidBottomPadding: false,
@@ -317,25 +345,9 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                   textAlign: TextAlign.center,
                   decoration: InputDecoration.collapsed(
                       hintText: 'Enter device name', hintStyle: Theme.of(context).textTheme.title.merge(TextStyle(fontWeight: FontWeight.normal, color: Colors.grey))),
+                  onChanged: (val) => setState(() {}),
                   onSubmitted: (val) {
-                    if (val == '') {
-                      _deviceNameEditingController.text = _persistanceHandler.getFromDevice(deviceID, 'device_name');
-                    } else {
-                      _persistanceHandler.setForDevice(deviceID, 'device_name', val);
-                    }
-                    setState(() {
-                      _editingTitle = false;
-                    });
-                  },
-                  onEditingComplete: () {
-                    _persistanceHandler.setForDevice(deviceID, 'device_name', _deviceNameEditingController.text);
-
-                    // close keyboard
-                    FocusScope.of(context).requestFocus(new FocusNode());
-
-                    setState(() {
-                      _editingTitle = false;
-                    });
+                    _updateDeviceName();
                   },
                 )
               : Text(
@@ -347,31 +359,13 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
         elevation: 0.0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: canI()
-              ? () {
-                  // close keyboard
-                  FocusScope.of(context).requestFocus(new FocusNode());
-
-                  Navigator.of(context).pop();
-                }
-              : null,
+          onPressed: canI() ? () => Navigator.of(context).pop() : null,
         ),
         actions: <Widget>[
           _editingTitle
               ? IconButton(
                   icon: const Icon(Icons.check),
-                  onPressed: _deviceNameEditingController.text.length > 0
-                      ? () {
-                          _persistanceHandler.setForDevice(deviceID, 'device_name', _deviceNameEditingController.text);
-
-                          // close keyboard
-                          FocusScope.of(context).requestFocus(new FocusNode());
-
-                          setState(() {
-                            _editingTitle = false;
-                          });
-                        }
-                      : null,
+                  onPressed: _deviceNameEditingController.text.length > 0 ? _updateDeviceName : null,
                 )
               : IconButton(
                   icon: const Icon(Icons.edit),
@@ -494,7 +488,7 @@ class _DeviceDetailsViewState extends State<DeviceDetailsView> {
                       child: IconButton(
                         icon: const Icon(Icons.timer),
                         color: _dynamicColor,
-                        onPressed: _status == Status.UNKNOWN || !canI()
+                        onPressed: _status == Status.UNKNOWN || _status == Status.LOADING || !canI()
                             ? null
                             : () {
                                 showDialog(

@@ -47,6 +47,7 @@ class SocketHandler {
             String addr;
             String macAddr;
             String port;
+            String deviceName;
             try {
               addr = splitData[1];
             } catch (e) {
@@ -62,7 +63,12 @@ class SocketHandler {
             } catch (e) {
               port = null;
             }
-            if (onDataCallback != null) onDataCallback(addr, macAddr, port);
+            try {
+              deviceName = splitData[4];
+            } catch (e) {
+              deviceName = null;
+            }
+            if (onDataCallback != null) onDataCallback(addr, macAddr, port, deviceName);
           }
         }
       });

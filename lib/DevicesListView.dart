@@ -56,11 +56,14 @@ class _DevicesListViewState extends State<DevicesListView> {
               ));
       setState(() {});
     } else if (connectivityResult == ConnectivityResult.wifi) {
-      final Function onDataCallback = (String addr, String macAddr, String port) {
+      final Function onDataCallback = (String addr, String macAddr, String port, String deviceName) {
         setState(() {
-          var device = {'addr': addr, 'macAddr': macAddr, 'port': port};
+          var device = {'addr': addr, 'macAddr': macAddr, 'port': port, 'device_name': deviceName};
           if (!_devicesList.any((element) {
-            return element['addr'] == device['addr'] && element['macAddr'] == device['macAddr'] && element['port'] == device['port'];
+            return element['addr'] == device['addr'] &&
+                element['macAddr'] == device['macAddr'] &&
+                element['port'] == device['port'] &&
+                element['device_name'] == device['device_name'];
           })) {
             _devicesList.add(device);
           }
@@ -130,7 +133,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                                   actions: <Widget>[
                                     FlatButton(
                                         child: Text(
-                                          'No',
+                                          'NO',
                                           style: TextStyle(color: Colors.lightBlue[900]),
                                         ),
                                         onPressed: () {
@@ -138,7 +141,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                                         }),
                                     FlatButton(
                                         child: Text(
-                                          'Yes',
+                                          'YES',
                                           style: TextStyle(color: Colors.red[800]),
                                         ),
                                         onPressed: () {
@@ -225,11 +228,12 @@ class _DevicesListViewState extends State<DevicesListView> {
                       final String deviceID = _devicesList[(i / 2).truncate()]['macAddr'];
                       final String addr = _devicesList[(i / 2).truncate()]['addr'];
                       final String port = _devicesList[(i / 2).truncate()]['port'];
+                      final String deviceName = _devicesList[(i / 2).truncate()]['device_name'];
 
                       bool isNew = false;
 
                       String title = 'Unsupported device';
-                      String subtitle = 'Missing address and/or port';
+                      String subtitle = 'Missing data';
                       TextStyle style = TextStyle(color: Colors.grey);
                       Function onTap;
 
@@ -240,25 +244,20 @@ class _DevicesListViewState extends State<DevicesListView> {
 
                         _persistanceHandler.setForDevice(deviceID, 'address', addr);
                         _persistanceHandler.setForDevice(deviceID, 'port', port);
-
-                        if (_persistanceHandler.getFromDevice(deviceID, 'device_name') == null) {
-                          isNew = true;
-                          title = 'Socket Device';
-                        } else {
-                          title = _persistanceHandler.getFromDevice(deviceID, 'device_name');
-                        }
+                        isNew = _persistanceHandler.getFromDevice(deviceID, 'device_name') == null;
+                        title = deviceName;
 
                         subtitle = 'Network address: $addr:$port';
                         style = null;
                         onTap = () {
                           _persistanceHandler.setString('current_device', deviceID);
 
-                          Navigator.of(context)
-                              .push(MaterialPageRoute(
-                                  builder: (BuildContext context) => DeviceDetailsView(
-                                        deviceID: deviceID,
-                                      )))
-                              .whenComplete(() {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (BuildContext context) {
+                            _persistanceHandler.setForDevice(deviceID, 'device_name', deviceName);
+                            return DeviceDetailsView(
+                              deviceID: deviceID,
+                            );
+                          })).whenComplete(() {
                             _persistanceHandler.remove('current_device');
                             _discoverDevices();
                           });
